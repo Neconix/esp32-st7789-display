@@ -11,9 +11,10 @@
 #include "esp_spiffs.h"
 
 #include "st7789.h"
+#include "colors.h"
 #include "fontx.h"
 
-#define	INTERVAL 400
+#define	INTERVAL 3000/portTICK_PERIOD_MS
 #define WAIT vTaskDelay(INTERVAL)
 
 static const char *TAG = "ST7789";
@@ -37,6 +38,7 @@ static void SPIFFS_Directory(char * path) {
 #define CONFIG_DC_GPIO      4
 #define CONFIG_RESET_GPIO   5
 #define CONFIG_BL_GPIO     -1   /* Not connected */
+#define CONFIG_SPI_HOST     SPI3_HOST
 
 
 static FontxFile fx16G[2];
@@ -73,7 +75,7 @@ TickType_t TextTest(TFT_t *dev, uint8_t view_iteration, int width, int height) {
 
     char s2[30];
     sprintf(s2, "Iteration: %d", view_iteration);
-    lcdDrawString(dev, fx24G, xpos, ypos*5 + 22, &s2, YELLOW);
+    lcdDrawString(dev, fx24G, xpos, ypos*5 + 22, s2, YELLOW);
 
     endTick = xTaskGetTickCount();
     diffTick = endTick - startTick;
@@ -81,10 +83,52 @@ TickType_t TextTest(TFT_t *dev, uint8_t view_iteration, int width, int height) {
     return diffTick;
 }
 
-void ST7789(void *pvParameters)
+void MenuTest(TFT_t *dev, int width, int height) {
+    TickType_t startTick, diffTick;
+
+    lcdFillScreen(dev, BLACK);
+    lcdSetFontDirection(dev, DIRECTION0);
+
+    uint16_t xpos = 5;
+    uint16_t ypos = 28;
+    uint16_t step = 30;
+    uint16_t items = 8;
+
+    uint16_t rect_x1 = 2;
+    uint16_t rect_x2 = CONFIG_WIDTH - 2;
+    uint16_t rect_y1 = 4;
+    uint16_t rect_heigth = 24;
+    uint16_t rect_step = step;
+
+    char s[30];
+    for (int i = 0; i < items; i++)
+    {
+        sprintf(s, "Menu item %d", i+1);
+        lcdDrawString(dev, fx24G, xpos, ypos, s, GREEN);
+        ypos += step;
+    }
+
+    for (int i = 0; i < items; i++)
+    {
+        startTick = xTaskGetTickCount();
+        // Clear previous menu rectangle
+        if (i > 0 && i < items) {
+            lcdDrawRect(dev, rect_x1, rect_y1 - step, rect_x2, rect_y1 - step + rect_heigth, BLACK);
+        }
+        // Display next rectangle
+        lcdDrawRect(dev, rect_x1, rect_y1, rect_x2, rect_y1 + rect_heigth, YELLOW);
+
+        rect_y1 += rect_step;
+
+        diffTick = xTaskGetTickCount() - startTick;
+        ESP_LOGI(__FUNCTION__, "Rect '%d' drawing time: %dms", i, diffTick*portTICK_PERIOD_MS);
+    }
+}
+
+void ST7789_Tests(void *pvParameters)
 {	
     TFT_t dev;
-    spi_master_init(&dev, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO, CONFIG_DC_GPIO, CONFIG_RESET_GPIO, CONFIG_BL_GPIO);
+    spi_master_init(&dev, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO, CONFIG_DC_GPIO, CONFIG_RESET_GPIO, CONFIG_BL_GPIO, CONFIG_SPI_HOST);
     lcdInit(&dev, CONFIG_WIDTH, CONFIG_HEIGHT, 0, 0);
 
     uint8_t view_iteration = 0;
@@ -94,12 +138,13 @@ void ST7789(void *pvParameters)
 
         TextTest(&dev, view_iteration, CONFIG_WIDTH, CONFIG_HEIGHT);
         WAIT;
+
+        MenuTest(&dev, CONFIG_WIDTH, CONFIG_HEIGHT);
+        WAIT;
     }
 }
 
-
-void app_main(void)
-{
+void InitSpiffs() {
     ESP_LOGI(TAG, "Initializing SPIFFS");
 
     esp_vfs_spiffs_conf_t conf = {
@@ -133,6 +178,12 @@ void app_main(void)
     }
 
     SPIFFS_Directory("/spiffs/");
+}
+
+
+void app_main(void)
+{
+    InitSpiffs();
 
     InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
     InitFontx(fx24G,"/spiffs/ILGH24XB.FNT",""); // 12x24Dot Gothic
@@ -142,5 +193,9 @@ void app_main(void)
     InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
     InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
 
-    xTaskCreate(ST7789, "ST7789", 1024*6, NULL, 2, NULL);
+    uint32_t stack_depth = 1024 * 6;
+
+    ESP_LOGI(TAG, "Stack depth: %d", stack_depth);
+
+    xTaskCreate(ST7789_Tests, "ST7789_Tests", stack_depth, NULL, 2, NULL);
 }

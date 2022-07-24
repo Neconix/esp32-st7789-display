@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 
 #include <driver/spi_master.h>
+#include <hal/spi_types.h>
 #include <driver/gpio.h>
 #include "esp_log.h"
 
@@ -12,9 +13,6 @@
 
 #define TAG "ST7789"
 #define	_DEBUG_ 0
-
-// #define HOST_ID SPI2_HOST
-#define HOST_ID SPI3_HOST
 
 static const int SPI_Command_Mode = 0;
 static const int SPI_Data_Mode = 1;
@@ -24,7 +22,7 @@ static const int SPI_Frequency = SPI_MASTER_FREQ_20M;
 //static const int SPI_Frequency = SPI_MASTER_FREQ_80M;
 
 
-void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t GPIO_CS, int16_t GPIO_DC, int16_t GPIO_RESET, int16_t GPIO_BL)
+void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t GPIO_CS, int16_t GPIO_DC, int16_t GPIO_RESET, int16_t GPIO_BL, spi_host_device_t host_id)
 {
 	esp_err_t ret;
 
@@ -75,7 +73,7 @@ void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t 
 		.flags = 0
 	};
 
-	ret = spi_bus_initialize( HOST_ID, &buscfg, SPI_DMA_CH_AUTO );
+	ret = spi_bus_initialize( host_id, &buscfg, SPI_DMA_CH_AUTO );
 	ESP_LOGD(TAG, "spi_bus_initialize=%d",ret);
 	assert(ret==ESP_OK);
 
@@ -93,7 +91,7 @@ void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t 
 	}
 	
 	spi_device_handle_t handle;
-	ret = spi_bus_add_device( HOST_ID, &devcfg, &handle);
+	ret = spi_bus_add_device( host_id, &devcfg, &handle);
 	ESP_LOGD(TAG, "spi_bus_add_device=%d",ret);
 	assert(ret==ESP_OK);
 	dev->_dc = GPIO_DC;

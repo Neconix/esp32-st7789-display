@@ -4,17 +4,6 @@
 #include "driver/spi_master.h"
 #include "fontx.h"
 
-#define RED				0xf800
-#define GREEN			0x07e0
-#define BLUE			0x001f
-#define BLACK			0x0000
-#define WHITE			0xffff
-#define GRAY			0x8c51
-#define YELLOW			0xFFE0
-#define CYAN			0x07FF
-#define PURPLE			0xF81F
-
-
 #define DIRECTION0		0
 #define DIRECTION90		1
 #define DIRECTION180	2
@@ -36,7 +25,7 @@ typedef struct {
 	spi_device_handle_t _SPIHandle;
 } TFT_t;
 
-void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t GPIO_CS, int16_t GPIO_DC, int16_t GPIO_RESET, int16_t GPIO_BL);
+void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t GPIO_CS, int16_t GPIO_DC, int16_t GPIO_RESET, int16_t GPIO_BL, spi_host_device_t host_id);
 bool spi_master_write_byte(spi_device_handle_t SPIHandle, const uint8_t* Data, size_t DataLength);
 bool spi_master_write_command(TFT_t * dev, uint8_t cmd);
 bool spi_master_write_data_byte(TFT_t * dev, uint8_t data);
