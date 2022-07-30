@@ -1,3 +1,7 @@
+/**
+ * @brief RGB565 colors
+ * 
+ */
 #define RED				0xf800
 #define GREEN			0x07e0
 #define BLUE			0x001f

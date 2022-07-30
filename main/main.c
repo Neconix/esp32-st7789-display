@@ -125,6 +125,66 @@ void MenuTest(TFT_t *dev, int width, int height) {
     }
 }
 
+double getTimeSec( void )
+{
+    struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    double time = spec.tv_sec + spec.tv_nsec / 1e9;
+    return time;
+}
+
+void SaturationBlue(TFT_t *dev) 
+{
+    double startTick, diffTick;
+
+    startTick = getTimeSec();
+
+    for (uint16_t color = BLACK; color <= BLUE; color++)
+    {
+        lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
+    }
+    
+    diffTick = getTimeSec() - startTick;
+    ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
+}
+
+void SaturationRed(TFT_t *dev) 
+{
+    double startTick, diffTick;
+
+    startTick = getTimeSec();
+
+    uint16_t color;
+    for (uint16_t i = 0; i < 0x1F; i++)
+    {
+        // Increment only red part of color
+        color = i << 11;
+        lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
+    }
+        
+    diffTick = getTimeSec() - startTick;
+    ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
+}
+
+void SaturationGreen(TFT_t *dev) 
+{
+    double startTick, diffTick;
+
+    startTick = getTimeSec();
+
+    uint16_t color;
+    // Green color have one more bit wide
+    for (uint16_t i = 0; i < 0x3F; i++)
+    {
+        // Increment only green part of color in RGB565
+        color = i << 5;
+        lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
+    }
+        
+    diffTick = getTimeSec() - startTick;
+    ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
+}
+
 void ST7789_Tests(void *pvParameters)
 {	
     TFT_t dev;
@@ -138,8 +198,13 @@ void ST7789_Tests(void *pvParameters)
 
         TextTest(&dev, view_iteration, CONFIG_WIDTH, CONFIG_HEIGHT);
         WAIT;
-
         MenuTest(&dev, CONFIG_WIDTH, CONFIG_HEIGHT);
+        WAIT;
+        SaturationBlue(&dev);
+        WAIT;
+        SaturationRed(&dev);
+        WAIT;
+        SaturationGreen(&dev);
         WAIT;
     }
 }

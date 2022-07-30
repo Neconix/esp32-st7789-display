@@ -10,15 +10,17 @@
 #include "esp_log.h"
 
 #include "st7789.h"
+#include "st7789_commands.h"
 
 #define TAG "ST7789"
+#define WRITE_BUFF_LEN 1024
 #define	_DEBUG_ 0
 
 static const int SPI_Command_Mode = 0;
 static const int SPI_Data_Mode = 1;
-static const int SPI_Frequency = SPI_MASTER_FREQ_20M;
+//static const int SPI_Frequency = SPI_MASTER_FREQ_20M;
 //static const int SPI_Frequency = SPI_MASTER_FREQ_26M;
-//static const int SPI_Frequency = SPI_MASTER_FREQ_40M;
+static const int SPI_Frequency = SPI_MASTER_FREQ_40M;
 //static const int SPI_Frequency = SPI_MASTER_FREQ_80M;
 
 
@@ -182,6 +184,35 @@ bool spi_master_write_colors(TFT_t * dev, uint16_t * colors, uint16_t size)
 	return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
 }
 
+void spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
+{
+	static uint16_t packet[WRITE_BUFF_LEN];
+	// Swapping bytes in a word
+	uint16_t color_packet = color >> 8 | (color & 0xFF) << 8;
+
+	gpio_set_level( dev->_dc, SPI_Data_Mode );
+
+	uint16_t len;
+	for (uint16_t p = 0; p <= size; p += WRITE_BUFF_LEN) {
+		len = (size - p) > WRITE_BUFF_LEN ? WRITE_BUFF_LEN : (size - p);
+
+		uint16_t index = 0;
+		for(int i = 0; i < len; i++) {
+			packet[i] = color_packet;
+		}
+		
+		spi_transaction_t SPITransaction;
+
+		memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
+		SPITransaction.length = sizeof(packet) / sizeof(packet[0]) * 16;
+		SPITransaction.tx_buffer = packet;
+
+		esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
+
+		assert(ret==ESP_OK);
+	}
+}
+
 void delayMS(int ms) {
 	int _ms = ms + (portTICK_PERIOD_MS - 1);
 	TickType_t xTicksToDelay = _ms / portTICK_PERIOD_MS;
@@ -199,6 +230,7 @@ void lcdInit(TFT_t * dev, int width, int height, int offsetx, int offsety)
 	dev->_font_direction = DIRECTION0;
 	dev->_font_fill = false;
 	dev->_font_underline = false;
+	dev->diplayBufferLen = DISPLAY_BUF_LEN;
 
 	spi_master_write_command(dev, 0x01);	//Software Reset
 	delayMS(150);
@@ -206,8 +238,9 @@ void lcdInit(TFT_t * dev, int width, int height, int offsetx, int offsety)
 	spi_master_write_command(dev, 0x11);	//Sleep Out
 	delayMS(255);
 	
-	spi_master_write_command(dev, 0x3A);	//Interface Pixel Format
-	spi_master_write_data_byte(dev, 0x55);
+	spi_master_write_command(dev,   0x3A);	//Interface Pixel Format
+	
+	spi_master_write_data_byte(dev, 0x55); // 0 101 0 101 - 16 bit/pixel, 65K RGB interface
 	delayMS(10);
 	
 	spi_master_write_command(dev, 0x36);	//Memory Data Access Control
@@ -280,6 +313,29 @@ void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint
 	spi_master_write_addr(dev, _y1, _y2);
 	spi_master_write_command(dev, 0x2C);	//	Memory Write
 	spi_master_write_colors(dev, colors, size);
+}
+
+void lcdDrawFillRectFast(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) 
+{
+	if (x1 > dev->_width) return;
+	if (y1 > dev->_height) return;
+	if (width == 0 || width > dev->_width) return;
+	if (height == 0 || height > dev->_height) return;
+
+	uint16_t _x1 = x1;
+	uint16_t _x2 = x1 + width - 1;
+	uint16_t _y1 = y1;
+	uint16_t _y2 = y1 + height - 1;
+
+	uint16_t size = width * height;
+
+	spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
+	spi_master_write_addr(dev, _x1, _x2);
+	spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
+	spi_master_write_addr(dev, _y1, _y2);
+	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
+
+	spi_master_write_packet(dev, color, size);
 }
 
 // Draw rectangle of filling
