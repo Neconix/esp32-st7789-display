@@ -1,6 +1,9 @@
 # esp32-st7789-display
-ST7789 TFT display driver for esp-idf based on https://github.com/nopnop2002/esp-idf-st7789.
-Include [st7789.c](main/st7789.c) lib and some font tests with a text output.
+ST7789 TFT display driver for esp-idf based on https://github.com/nopnop2002/esp-idf-st7789 with perfomance improvements and new functions.
+Include tests for drawing lines, fonts, rectangles.
+
+# Software requirements
+esp-idf v4.4 or later.
 
 # Hardware Required
 
@@ -53,13 +56,15 @@ Especially, please pay attention to the level used to turn on the LCD backlight,
 Current supported functions list:
 
 ```C
-void lcdInit(TFT_t * dev, int width, int height, int offsetx, int offsety);
+void lcdInit(TFT_t *dev, display_config_t *display_config);
 void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color);
 void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint16_t * colors);
 void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color);
 void lcdDisplayOff(TFT_t * dev);
 void lcdDisplayOn(TFT_t * dev);
 void lcdFillScreen(TFT_t * dev, uint16_t color);
+void lcdDrawHLine(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t length, uint16_t color);
+void lcdDrawVLine(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t height, uint16_t color);
 void lcdDrawLine(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
 void lcdDrawRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color);
 void lcdDrawRectAngle(TFT_t * dev, uint16_t xc, uint16_t yc, uint16_t w, uint16_t h, uint16_t angle, uint16_t color);
@@ -83,10 +88,7 @@ void lcdInversionOff(TFT_t * dev);
 void lcdInversionOn(TFT_t * dev);
 uint16_t rgb565_conv(uint16_t r, uint16_t g, uint16_t b);
 ```
-See [st7789.h](main/st7789.h) and [st7789.c](main/st7789.c)
-
-# Software requirements
-esp-idf v4.4 or later.   
+See [st7789.h](main/st7789.h) and [st7789.c](main/st7789.c)   
 
 # Docs
 esp-idf: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/

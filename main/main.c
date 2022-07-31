@@ -185,6 +185,36 @@ void SaturationGreen(TFT_t *dev)
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
+void Lines(TFT_t *dev) 
+{
+    double startTick, diffTick;
+
+    uint16_t left = 0;
+    uint16_t top = 0;
+    uint16_t length = dev->_width;
+    uint16_t height = dev->_height;
+    uint16_t step = 40;
+
+    lcdFillScreen(dev, BLACK);
+
+    startTick = getTimeSec();
+
+    lcdDrawHLine(dev, left, top+step*1, length, GREEN);
+    lcdDrawHLine(dev, left, top+step*2, length, CYAN);
+    lcdDrawHLine(dev, left, top+step*3, length, YELLOW);
+    lcdDrawHLine(dev, left, top+step*4, length, PURPLE);
+    lcdDrawHLine(dev, left, top+step*5, length, RED);
+
+    lcdDrawVLine(dev, left+step*1, top, height, GREEN);
+    lcdDrawVLine(dev, left+step*2, top, height, CYAN);
+    lcdDrawVLine(dev, left+step*3, top, height, YELLOW);
+    lcdDrawVLine(dev, left+step*4, top, height, PURPLE);
+    lcdDrawVLine(dev, left+step*5, top, height, RED);
+        
+    diffTick = getTimeSec() - startTick;
+    ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
+}
+
 void ST7789_Tests(void *pvParameters)
 {	
     TFT_t dev;
@@ -208,6 +238,8 @@ void ST7789_Tests(void *pvParameters)
         TextTest(&dev, i);
         WAIT;
         MenuTest(&dev);
+        WAIT;
+        Lines(&dev);
         WAIT;
         SaturationBlue(&dev);
         WAIT;

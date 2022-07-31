@@ -12,12 +12,14 @@
 #include "st7789.h"
 #include "st7789_commands.h"
 
-#define TAG "ST7789"
-#define WRITE_BUFF_LEN 1024
 #define	_DEBUG_ 0
 
-static const int SPI_Command_Mode = 0;
-static const int SPI_Data_Mode = 1;
+#define TAG "ST7789"
+
+#define WRITE_BUFF_LEN 1024
+
+#define SPI_CMD_MODE  0x00
+#define SPI_DATA_MODE 0x01
 
 void delayMS(int ms) {
 	int _ms = ms + (portTICK_PERIOD_MS - 1);
@@ -122,18 +124,14 @@ bool spi_master_write_byte(spi_device_handle_t SPIHandle, const uint8_t* Data, s
 
 bool spi_master_write_command(TFT_t * dev, uint8_t cmd)
 {
-	static uint8_t Byte = 0;
-	Byte = cmd;
-	gpio_set_level( dev->_dc, SPI_Command_Mode );
-	return spi_master_write_byte( dev->_SPIHandle, &Byte, 1 );
+	gpio_set_level(dev->_dc, SPI_CMD_MODE);
+	return spi_master_write_byte(dev->_SPIHandle, &cmd, 1);
 }
 
 bool spi_master_write_data_byte(TFT_t * dev, uint8_t data)
 {
-	static uint8_t Byte = 0;
-	Byte = data;
-	gpio_set_level( dev->_dc, SPI_Data_Mode );
-	return spi_master_write_byte( dev->_SPIHandle, &Byte, 1 );
+	gpio_set_level( dev->_dc, SPI_DATA_MODE);
+	return spi_master_write_byte(dev->_SPIHandle, &data, 1);
 }
 
 
@@ -142,7 +140,7 @@ bool spi_master_write_data_word(TFT_t * dev, uint16_t data)
 	static uint8_t Byte[2];
 	Byte[0] = (data >> 8) & 0xFF;
 	Byte[1] = data & 0xFF;
-	gpio_set_level( dev->_dc, SPI_Data_Mode );
+	gpio_set_level( dev->_dc, SPI_DATA_MODE );
 	return spi_master_write_byte( dev->_SPIHandle, Byte, 2);
 }
 
@@ -153,7 +151,7 @@ bool spi_master_write_addr(TFT_t * dev, uint16_t addr1, uint16_t addr2)
 	Byte[1] = addr1 & 0xFF;
 	Byte[2] = (addr2 >> 8) & 0xFF;
 	Byte[3] = addr2 & 0xFF;
-	gpio_set_level( dev->_dc, SPI_Data_Mode );
+	gpio_set_level( dev->_dc, SPI_DATA_MODE );
 	return spi_master_write_byte( dev->_SPIHandle, Byte, 4);
 }
 
@@ -165,7 +163,7 @@ bool spi_master_write_color(TFT_t * dev, uint16_t color, uint16_t size)
 		Byte[index++] = (color >> 8) & 0xFF;
 		Byte[index++] = color & 0xFF;
 	}
-	gpio_set_level( dev->_dc, SPI_Data_Mode );
+	gpio_set_level( dev->_dc, SPI_DATA_MODE );
 	return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
 }
 
@@ -178,19 +176,20 @@ bool spi_master_write_colors(TFT_t * dev, uint16_t * colors, uint16_t size)
 		Byte[index++] = (colors[i] >> 8) & 0xFF;
 		Byte[index++] = colors[i] & 0xFF;
 	}
-	gpio_set_level( dev->_dc, SPI_Data_Mode );
+	gpio_set_level( dev->_dc, SPI_DATA_MODE);
 	return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
 }
 
-void spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
+uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 {
 	static uint16_t packet[WRITE_BUFF_LEN];
 	// Swapping bytes in a word
 	uint16_t color_word = color >> 8 | (color & 0xFF) << 8;
 
-	gpio_set_level( dev->_dc, SPI_Data_Mode );
+	gpio_set_level(dev->_dc, SPI_DATA_MODE);
 
 	uint16_t len;
+	uint16_t total = 0;
 	for (uint16_t p = 0; p <= size; p += WRITE_BUFF_LEN) {
 		len = (size - p) > WRITE_BUFF_LEN ? WRITE_BUFF_LEN : (size - p);
 
@@ -201,13 +200,15 @@ void spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 		spi_transaction_t SPITransaction;
 
 		memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
-		SPITransaction.length = sizeof(packet) / sizeof(packet[0]) * 16;
+		SPITransaction.length = len * 16; // bits in a packet
 		SPITransaction.tx_buffer = packet;
 
 		esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
-
 		assert(ret==ESP_OK);
+		total += len;
 	}
+
+	return total;
 }
 
 void lcdInit(TFT_t *dev, display_config_t *display_config)
@@ -219,7 +220,7 @@ void lcdInit(TFT_t *dev, display_config_t *display_config)
 	dev->_font_direction = DIRECTION0;
 	dev->_font_fill = false;
 	dev->_font_underline = false;
-	dev->diplayBufferLen = DISPLAY_BUF_LEN;
+	dev->diplayBufferLen = WRITE_BUFF_LEN;
 
 	spi_master_init(dev, display_config);
 
@@ -318,15 +319,16 @@ void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint
  */
 void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) 
 {
-	if (x1 > dev->_width) return;
-	if (y1 > dev->_height) return;
-	if (width == 0 || width > dev->_width) return;
-	if (height == 0 || height > dev->_height) return;
+	if (x1 > dev->_width - 1) return;
+	if (y1 > dev->_height - 1) return;
 
 	uint16_t _x1 = x1;
 	uint16_t _x2 = x1 + width - 1;
 	uint16_t _y1 = y1;
 	uint16_t _y2 = y1 + height - 1;
+
+	if (width == 0 || _x2 > dev->_width - 1) return;
+	if (height == 0 || _y2 > dev->_height - 1) return;
 
 	uint16_t size = width * height;
 
@@ -353,6 +355,62 @@ void lcdDisplayOn(TFT_t * dev) {
 // color:color
 void lcdFillScreen(TFT_t * dev, uint16_t color) {
 	lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
+}
+
+/**
+ * @brief Fast display a horizontal line
+ * 
+ * @param dev 
+ * @param x1 
+ * @param y1 
+ * @param length 
+ * @param color 
+ */
+void lcdDrawHLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t length, uint16_t color)
+{
+	if (length == 0) return;
+	if (x1 > dev->_width - 1) return;
+	if (y1 > dev->_height - 1) return;
+
+	uint16_t x2 = x1 + length - 1;
+
+	if (x2 > dev->_width - 1) return;
+
+	spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
+	spi_master_write_addr(dev, x1, x2);
+	spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
+	spi_master_write_addr(dev, y1, y1+1);
+	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
+
+	uint16_t total = spi_master_write_packet(dev, color, length);
+}
+
+/**
+ * @brief * @brief Fast display a vertical line
+ * 
+ * @param dev 
+ * @param x1 
+ * @param y1 
+ * @param height 
+ * @param color 
+ */
+void lcdDrawVLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t height, uint16_t color)
+{
+	if (height == 0) return;
+	if (x1 > dev->_width - 1) return;
+	if (y1 > dev->_height - 1) return;
+
+	uint16_t y2 = y1 + height - 1;
+
+	if (y2 > dev->_height - 1) return;
+
+	spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
+	spi_master_write_addr(dev, x1, x1);
+	spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
+	spi_master_write_addr(dev, y1, y2);
+	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
+
+	spi_master_write_packet(dev, color, height);
 }
 
 // Draw line
