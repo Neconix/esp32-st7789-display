@@ -382,7 +382,7 @@ void lcdDrawHLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t length, uint16_
 	spi_master_write_addr(dev, y1, y1+1);
 	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
 
-	uint16_t total = spi_master_write_packet(dev, color, length);
+	spi_master_write_packet(dev, color, length);
 }
 
 /**
