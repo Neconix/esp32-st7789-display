@@ -1,4 +1,5 @@
 #include "driver/spi_master.h"
+#include "hal/gpio_types.h"
 #include "fontx.h"
 
 #define DIRECTION0		0
@@ -24,9 +25,20 @@ typedef struct {
 	spi_device_handle_t _SPIHandle;
 } TFT_t;
 
-void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t GPIO_CS, int16_t GPIO_DC, int16_t GPIO_RESET, int16_t GPIO_BL, spi_host_device_t host_id);
+typedef struct {
+	uint16_t width;
+	uint16_t height;
+    gpio_num_t pinMOSI;
+    gpio_num_t pinSCLK;
+    gpio_num_t pinCS;
+    gpio_num_t pinDC;
+    gpio_num_t pinRESET;
+    gpio_num_t pinBL;
+	spi_host_device_t spiHost;
+	int spiFrequency;
+} display_config_t;
 
-void lcdInit(TFT_t * dev, int width, int height, int offsetx, int offsety);
+void lcdInit(TFT_t *dev, display_config_t *display_config);
 void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color);
 void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint16_t * colors);
 void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color);

@@ -9,6 +9,7 @@
 #include "esp_system.h"
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
+#include "driver/spi_master.h"
 
 #include "st7789.h"
 #include "colors.h"
@@ -17,7 +18,25 @@
 #define	INTERVAL 3000/portTICK_PERIOD_MS
 #define WAIT vTaskDelay(INTERVAL)
 
+#define CONFIG_WIDTH        240
+#define CONFIG_HEIGHT       240
+#define CONFIG_MOSI_GPIO    GPIO_NUM_23
+#define CONFIG_SCLK_GPIO    GPIO_NUM_18
+#define CONFIG_CS_GPIO      GPIO_NUM_NC   /* Not connected */
+#define CONFIG_DC_GPIO      GPIO_NUM_4
+#define CONFIG_RESET_GPIO   GPIO_NUM_5
+#define CONFIG_BL_GPIO      GPIO_NUM_NC   /* Not connected */
+#define CONFIG_SPI_HOST     SPI3_HOST
+
 static const char *TAG = "ST7789";
+
+static FontxFile fx16G[2];
+static FontxFile fx24G[2];
+static FontxFile fx32G[2];
+static FontxFile fx32L[2];
+static FontxFile fx16M[2];
+static FontxFile fx24M[2];
+static FontxFile fx32M[2];
 
 static void SPIFFS_Directory(char * path) {
     DIR* dir = opendir(path);
@@ -30,26 +49,7 @@ static void SPIFFS_Directory(char * path) {
     closedir(dir);
 }
 
-#define CONFIG_WIDTH        240
-#define CONFIG_HEIGHT       240
-#define CONFIG_MOSI_GPIO    23
-#define CONFIG_SCLK_GPIO    18
-#define CONFIG_CS_GPIO     -1   /* Not connected */
-#define CONFIG_DC_GPIO      4
-#define CONFIG_RESET_GPIO   5
-#define CONFIG_BL_GPIO     -1   /* Not connected */
-#define CONFIG_SPI_HOST     SPI3_HOST
-
-
-static FontxFile fx16G[2];
-static FontxFile fx24G[2];
-static FontxFile fx32G[2];
-static FontxFile fx32L[2];
-static FontxFile fx16M[2];
-static FontxFile fx24M[2];
-static FontxFile fx32M[2];
-
-TickType_t TextTest(TFT_t *dev, uint8_t view_iteration, int width, int height) {
+TickType_t TextTest(TFT_t *dev, uint8_t view_iteration) {
     TickType_t startTick, endTick, diffTick;
     startTick = xTaskGetTickCount();
 
@@ -83,7 +83,7 @@ TickType_t TextTest(TFT_t *dev, uint8_t view_iteration, int width, int height) {
     return diffTick;
 }
 
-void MenuTest(TFT_t *dev, int width, int height) {
+void MenuTest(TFT_t *dev) {
     TickType_t startTick, diffTick;
 
     lcdFillScreen(dev, BLACK);
@@ -188,17 +188,26 @@ void SaturationGreen(TFT_t *dev)
 void ST7789_Tests(void *pvParameters)
 {	
     TFT_t dev;
-    spi_master_init(&dev, CONFIG_MOSI_GPIO, CONFIG_SCLK_GPIO, CONFIG_CS_GPIO, CONFIG_DC_GPIO, CONFIG_RESET_GPIO, CONFIG_BL_GPIO, CONFIG_SPI_HOST);
-    lcdInit(&dev, CONFIG_WIDTH, CONFIG_HEIGHT, 0, 0);
+    display_config_t displayConfig = {
+        .width = CONFIG_WIDTH,
+        .height = CONFIG_HEIGHT,
+        .pinMOSI = CONFIG_MOSI_GPIO,
+        .pinSCLK = CONFIG_SCLK_GPIO,
+        .pinCS = CONFIG_CS_GPIO,
+        .pinDC = CONFIG_DC_GPIO,
+        .pinRESET = CONFIG_RESET_GPIO,
+        .pinBL = CONFIG_BL_GPIO,
+        .spiHost = SPI3_HOST,
+	    .spiFrequency = SPI_MASTER_FREQ_40M
+    };
 
-    uint8_t view_iteration = 0;
+    lcdInit(&dev, &displayConfig);
 
-    while(1) {
-        view_iteration++;
-
-        TextTest(&dev, view_iteration, CONFIG_WIDTH, CONFIG_HEIGHT);
+    for (uint16_t i = 1;; i++)
+    {
+        TextTest(&dev, i);
         WAIT;
-        MenuTest(&dev, CONFIG_WIDTH, CONFIG_HEIGHT);
+        MenuTest(&dev);
         WAIT;
         SaturationBlue(&dev);
         WAIT;

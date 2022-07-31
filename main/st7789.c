@@ -18,86 +18,84 @@
 
 static const int SPI_Command_Mode = 0;
 static const int SPI_Data_Mode = 1;
-//static const int SPI_Frequency = SPI_MASTER_FREQ_20M;
-//static const int SPI_Frequency = SPI_MASTER_FREQ_26M;
-static const int SPI_Frequency = SPI_MASTER_FREQ_40M;
-//static const int SPI_Frequency = SPI_MASTER_FREQ_80M;
 
+void delayMS(int ms) {
+	int _ms = ms + (portTICK_PERIOD_MS - 1);
+	TickType_t xTicksToDelay = _ms / portTICK_PERIOD_MS;
+	vTaskDelay(xTicksToDelay);
+}
 
-void spi_master_init(TFT_t * dev, int16_t GPIO_MOSI, int16_t GPIO_SCLK, int16_t GPIO_CS, int16_t GPIO_DC, int16_t GPIO_RESET, int16_t GPIO_BL, spi_host_device_t host_id)
+void spi_master_init(TFT_t *dev, display_config_t *display_config)
 {
 	esp_err_t ret;
 
-	ESP_LOGI(TAG, "GPIO_CS=%d",GPIO_CS);
-	if ( GPIO_CS >= 0 ) {
-		//gpio_pad_select_gpio( GPIO_CS );
-		gpio_reset_pin( GPIO_CS );
-		gpio_set_direction( GPIO_CS, GPIO_MODE_OUTPUT );
-		gpio_set_level( GPIO_CS, 0 );
+	ESP_LOGI(TAG, "GPIO_CS=%d", display_config->pinCS);
+	if ( display_config->pinCS >= 0 ) {
+		gpio_reset_pin( display_config->pinCS );
+		gpio_set_direction( display_config->pinCS, GPIO_MODE_OUTPUT );
+		gpio_set_level( display_config->pinCS, 0 );
 	}
 
-	ESP_LOGI(TAG, "GPIO_DC=%d",GPIO_DC);
-	//gpio_pad_select_gpio( GPIO_DC );
-	gpio_reset_pin( GPIO_DC );
-	gpio_set_direction( GPIO_DC, GPIO_MODE_OUTPUT );
-	gpio_set_level( GPIO_DC, 0 );
+	ESP_LOGI(TAG, "GPIO_DC=%d", display_config->pinDC);
+	gpio_reset_pin( display_config->pinDC );
+	gpio_set_direction( display_config->pinDC, GPIO_MODE_OUTPUT );
+	gpio_set_level( display_config->pinDC, 0 );
 
-	ESP_LOGI(TAG, "GPIO_RESET=%d",GPIO_RESET);
-	if ( GPIO_RESET >= 0 ) {
-		//gpio_pad_select_gpio( GPIO_RESET );
-		gpio_reset_pin( GPIO_RESET );
-		gpio_set_direction( GPIO_RESET, GPIO_MODE_OUTPUT );
-		gpio_set_level( GPIO_RESET, 1 );
+	ESP_LOGI(TAG, "GPIO_RESET=%d", display_config->pinRESET);
+	if ( display_config->pinRESET >= 0 ) {
+		gpio_reset_pin( display_config->pinRESET );
+		gpio_set_direction( display_config->pinRESET, GPIO_MODE_OUTPUT );
+		gpio_set_level( display_config->pinRESET, 1 );
 		delayMS(50);
-		gpio_set_level( GPIO_RESET, 0 );
+		gpio_set_level( display_config->pinRESET, 0 );
 		delayMS(50);
-		gpio_set_level( GPIO_RESET, 1 );
+		gpio_set_level( display_config->pinRESET, 1 );
 		delayMS(50);
 	}
 
-	ESP_LOGI(TAG, "GPIO_BL=%d",GPIO_BL);
-	if ( GPIO_BL >= 0 ) {
-		//gpio_pad_select_gpio(GPIO_BL);
-		gpio_reset_pin(GPIO_BL);
-		gpio_set_direction( GPIO_BL, GPIO_MODE_OUTPUT );
-		gpio_set_level( GPIO_BL, 0 );
+	ESP_LOGI(TAG, "GPIO_BL=%d", display_config->pinBL);
+	if ( display_config->pinBL >= 0 ) {
+		gpio_reset_pin(display_config->pinBL);
+		gpio_set_direction(display_config->pinBL, GPIO_MODE_OUTPUT);
+		gpio_set_level(display_config->pinBL, 0);
 	}
 
-	ESP_LOGI(TAG, "GPIO_MOSI=%d",GPIO_MOSI);
-	ESP_LOGI(TAG, "GPIO_SCLK=%d",GPIO_SCLK);
+	ESP_LOGI(TAG, "GPIO_MOSI=%d", display_config->pinMOSI);
+	ESP_LOGI(TAG, "GPIO_SCLK=%d", display_config->pinSCLK);
 	spi_bus_config_t buscfg = {
-		.mosi_io_num = GPIO_MOSI,
+		.mosi_io_num = display_config->pinMOSI,
 		.miso_io_num = -1,
-		.sclk_io_num = GPIO_SCLK,
+		.sclk_io_num = display_config->pinSCLK,
 		.quadwp_io_num = -1,
 		.quadhd_io_num = -1,
 		.max_transfer_sz = 0,
 		.flags = 0
 	};
 
-	ret = spi_bus_initialize( host_id, &buscfg, SPI_DMA_CH_AUTO );
+	ret = spi_bus_initialize( display_config->spiHost, &buscfg, SPI_DMA_CH_AUTO );
 	ESP_LOGD(TAG, "spi_bus_initialize=%d",ret);
 	assert(ret==ESP_OK);
 
 	spi_device_interface_config_t devcfg;
 	memset(&devcfg, 0, sizeof(devcfg));
-	devcfg.clock_speed_hz = SPI_Frequency;
+	devcfg.clock_speed_hz = display_config->spiFrequency;
 	devcfg.queue_size = 7;
 	devcfg.mode = 2;
 	devcfg.flags = SPI_DEVICE_NO_DUMMY;
 
-	if ( GPIO_CS >= 0 ) {
-		devcfg.spics_io_num = GPIO_CS;
+	if ( display_config->pinCS >= 0 ) {
+		devcfg.spics_io_num = display_config->pinCS;
 	} else {
 		devcfg.spics_io_num = -1;
 	}
 	
 	spi_device_handle_t handle;
-	ret = spi_bus_add_device( host_id, &devcfg, &handle);
+	ret = spi_bus_add_device( display_config->spiHost, &devcfg, &handle);
 	ESP_LOGD(TAG, "spi_bus_add_device=%d",ret);
 	assert(ret==ESP_OK);
-	dev->_dc = GPIO_DC;
-	dev->_bl = GPIO_BL;
+
+	dev->_dc = display_config->pinDC;
+	dev->_bl = display_config->pinBL;
 	dev->_SPIHandle = handle;
 }
 
@@ -188,7 +186,7 @@ void spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 {
 	static uint16_t packet[WRITE_BUFF_LEN];
 	// Swapping bytes in a word
-	uint16_t color_packet = color >> 8 | (color & 0xFF) << 8;
+	uint16_t color_word = color >> 8 | (color & 0xFF) << 8;
 
 	gpio_set_level( dev->_dc, SPI_Data_Mode );
 
@@ -196,9 +194,8 @@ void spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 	for (uint16_t p = 0; p <= size; p += WRITE_BUFF_LEN) {
 		len = (size - p) > WRITE_BUFF_LEN ? WRITE_BUFF_LEN : (size - p);
 
-		uint16_t index = 0;
 		for(int i = 0; i < len; i++) {
-			packet[i] = color_packet;
+			packet[i] = color_word;
 		}
 		
 		spi_transaction_t SPITransaction;
@@ -213,24 +210,18 @@ void spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 	}
 }
 
-void delayMS(int ms) {
-	int _ms = ms + (portTICK_PERIOD_MS - 1);
-	TickType_t xTicksToDelay = _ms / portTICK_PERIOD_MS;
-	ESP_LOGD(TAG, "ms=%d _ms=%d portTICK_PERIOD_MS=%d xTicksToDelay=%d",ms,_ms,portTICK_PERIOD_MS,xTicksToDelay);
-	vTaskDelay(xTicksToDelay);
-}
-
-
-void lcdInit(TFT_t * dev, int width, int height, int offsetx, int offsety)
+void lcdInit(TFT_t *dev, display_config_t *display_config)
 {
-	dev->_width = width;
-	dev->_height = height;
-	dev->_offsetx = offsetx;
-	dev->_offsety = offsety;
+	dev->_width = display_config->width;
+	dev->_height = display_config->height;
+	dev->_offsetx = 0;
+	dev->_offsety = 0;
 	dev->_font_direction = DIRECTION0;
 	dev->_font_fill = false;
 	dev->_font_underline = false;
 	dev->diplayBufferLen = DISPLAY_BUF_LEN;
+
+	spi_master_init(dev, display_config);
 
 	spi_master_write_command(dev, 0x01);	//Software Reset
 	delayMS(150);
@@ -386,7 +377,7 @@ void lcdDisplayOn(TFT_t * dev) {
 // Fill screen
 // color:color
 void lcdFillScreen(TFT_t * dev, uint16_t color) {
-	lcdDrawFillRect(dev, 0, 0, dev->_width-1, dev->_height-1, color);
+	lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
 }
 
 // Draw line
