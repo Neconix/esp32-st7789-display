@@ -306,7 +306,17 @@ void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint
 	spi_master_write_colors(dev, colors, size);
 }
 
-void lcdDrawFillRectFast(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) 
+/**
+ * @brief Draw a filled rectangle
+ * 
+ * @param dev 
+ * @param x1 
+ * @param y1 
+ * @param width 
+ * @param height 
+ * @param color 
+ */
+void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) 
 {
 	if (x1 > dev->_width) return;
 	if (y1 > dev->_height) return;
@@ -327,41 +337,6 @@ void lcdDrawFillRectFast(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, 
 	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
 
 	spi_master_write_packet(dev, color, size);
-}
-
-// Draw rectangle of filling
-// x1:Start X coordinate
-// y1:Start Y coordinate
-// x2:End X coordinate
-// y2:End Y coordinate
-// color:color
-void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color) {
-	if (x1 >= dev->_width) return;
-	if (x2 >= dev->_width) x2=dev->_width-1;
-	if (y1 >= dev->_height) return;
-	if (y2 >= dev->_height) y2=dev->_height-1;
-
-	ESP_LOGD(TAG,"offset(x)=%d offset(y)=%d",dev->_offsetx,dev->_offsety);
-	uint16_t _x1 = x1 + dev->_offsetx;
-	uint16_t _x2 = x2 + dev->_offsetx;
-	uint16_t _y1 = y1 + dev->_offsety;
-	uint16_t _y2 = y2 + dev->_offsety;
-
-	spi_master_write_command(dev, 0x2A);	// set column(x) address
-	spi_master_write_addr(dev, _x1, _x2);
-	spi_master_write_command(dev, 0x2B);	// set Page(y) address
-	spi_master_write_addr(dev, _y1, _y2);
-	spi_master_write_command(dev, 0x2C);	//	Memory Write
-	for(int i=_x1;i<=_x2;i++){
-		uint16_t size = _y2-_y1+1;
-		spi_master_write_color(dev, color, size);
-#if 0
-		for(j=y1;j<=y2;j++){
-			//ESP_LOGD(TAG,"i=%d j=%d",i,j);
-			spi_master_write_data_word(dev, color);
-		}
-#endif
-	}
 }
 
 // Display OFF
