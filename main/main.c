@@ -49,6 +49,14 @@ static void SPIFFS_Directory(char * path) {
     closedir(dir);
 }
 
+double getTimeSec( void )
+{
+    struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    double time = spec.tv_sec + spec.tv_nsec / 1e9;
+    return time;
+}
+
 TickType_t TextTest(TFT_t *dev, uint8_t view_iteration) {
     TickType_t startTick, endTick, diffTick;
     startTick = xTaskGetTickCount();
@@ -84,7 +92,7 @@ TickType_t TextTest(TFT_t *dev, uint8_t view_iteration) {
 }
 
 void MenuTest(TFT_t *dev) {
-    TickType_t startTick, diffTick;
+    double startTick, diffTick;
 
     lcdFillScreen(dev, BLACK);
     lcdSetFontDirection(dev, DIRECTION0);
@@ -95,9 +103,9 @@ void MenuTest(TFT_t *dev) {
     uint16_t items = 8;
 
     uint16_t rect_x1 = 2;
-    uint16_t rect_x2 = CONFIG_WIDTH - 2;
+    uint16_t width = dev->_width - 2;
+    uint16_t height = 24;
     uint16_t rect_y1 = 4;
-    uint16_t rect_heigth = 24;
     uint16_t rect_step = step;
 
     char s[30];
@@ -110,33 +118,25 @@ void MenuTest(TFT_t *dev) {
 
     for (int i = 0; i < items; i++)
     {
-        startTick = xTaskGetTickCount();
+        startTick = getTimeSec();
         // Clear previous menu rectangle
         if (i > 0 && i < items) {
-            lcdDrawRect(dev, rect_x1, rect_y1 - step, rect_x2, rect_y1 - step + rect_heigth, BLACK);
+            lcdDrawRect(dev, rect_x1, rect_y1 - step, width, height, BLACK);
         }
         // Display next rectangle
-        lcdDrawRect(dev, rect_x1, rect_y1, rect_x2, rect_y1 + rect_heigth, YELLOW);
+        lcdDrawRect(dev, rect_x1, rect_y1, width, height, YELLOW);
 
         rect_y1 += rect_step;
 
-        diffTick = xTaskGetTickCount() - startTick;
-        ESP_LOGI(__FUNCTION__, "Rect '%d' drawing time: %dms", i, diffTick*portTICK_PERIOD_MS);
+        diffTick = getTimeSec() - startTick;
+        ESP_LOGI(__FUNCTION__, "Menu rect '%d' drawing time: %f s", i, diffTick);
+        vTaskDelay(100/portTICK_PERIOD_MS);
     }
-}
-
-double getTimeSec( void )
-{
-    struct timespec spec;
-    clock_gettime(CLOCK_REALTIME, &spec);
-    double time = spec.tv_sec + spec.tv_nsec / 1e9;
-    return time;
 }
 
 void SaturationBlue(TFT_t *dev) 
 {
     double startTick, diffTick;
-
     startTick = getTimeSec();
 
     for (uint16_t color = BLACK; color <= BLUE; color++)
@@ -151,7 +151,6 @@ void SaturationBlue(TFT_t *dev)
 void SaturationRed(TFT_t *dev) 
 {
     double startTick, diffTick;
-
     startTick = getTimeSec();
 
     uint16_t color;
@@ -169,7 +168,6 @@ void SaturationRed(TFT_t *dev)
 void SaturationGreen(TFT_t *dev) 
 {
     double startTick, diffTick;
-
     startTick = getTimeSec();
 
     uint16_t color;
@@ -215,6 +213,31 @@ void Lines(TFT_t *dev)
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
+void Squares(TFT_t *dev) 
+{
+    double startTick, diffTick;
+
+    uint16_t left = 0;
+    uint16_t top = 0;
+    uint16_t width = dev->_width;
+    uint16_t height = dev->_height;
+    uint16_t step = 16;
+
+    lcdFillScreen(dev, BLACK);
+
+    startTick = getTimeSec();
+
+    uint16_t color = RED;
+    for (uint8_t i = 0; i < 8*step; i+=step)
+    {
+        lcdDrawRect(dev, left+i, top+i, width-2*i, height-2*i, color);
+        color = color - (4 << 11); // shift to get red component
+    }
+        
+    diffTick = getTimeSec() - startTick;
+    ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
+}
+
 void ST7789_Tests(void *pvParameters)
 {	
     TFT_t dev;
@@ -246,6 +269,8 @@ void ST7789_Tests(void *pvParameters)
         SaturationRed(&dev);
         WAIT;
         SaturationGreen(&dev);
+        WAIT;
+        Squares(&dev);
         WAIT;
     }
 }

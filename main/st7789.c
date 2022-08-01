@@ -461,17 +461,21 @@ void lcdDrawLine(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2
 	}
 }
 
-// Draw rectangle
-// x1:Start X coordinate
-// y1:Start Y coordinate
-// x2:End	X coordinate
-// y2:End	Y coordinate
-// color:color
-void lcdDrawRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color) {
-	lcdDrawLine(dev, x1, y1, x2, y1, color);
-	lcdDrawLine(dev, x2, y1, x2, y2, color);
-	lcdDrawLine(dev, x2, y2, x1, y2, color);
-	lcdDrawLine(dev, x1, y2, x1, y1, color);
+/**
+ * @brief Draw a rectangle primitive
+ * 
+ * @param dev a pointer to lcd device struct
+ * @param x1 x coordinate of the upper left corner
+ * @param y1 y coordinate of the upper left corner
+ * @param width length of the rectangle
+ * @param height width of the rectangle
+ * @param color border color
+ */
+void lcdDrawRect(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) {
+	lcdDrawHLine(dev, x1, y1, width, color);
+	lcdDrawHLine(dev, x1, y1 + height - 1, width, color);
+	lcdDrawVLine(dev, x1, y1, height, color);
+	lcdDrawVLine(dev, x1 + width - 1, y1, height, color);
 }
 
 // Draw rectangle with angle
