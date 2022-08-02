@@ -191,23 +191,24 @@ void Lines(TFT_t *dev)
     uint16_t top = 0;
     uint16_t length = dev->_width;
     uint16_t height = dev->_height;
+    uint16_t thickness = 4;
     uint16_t step = 40;
 
     lcdFillScreen(dev, BLACK);
 
     startTick = getTimeSec();
 
-    lcdDrawHLine(dev, left, top+step*1, length, GREEN);
-    lcdDrawHLine(dev, left, top+step*2, length, CYAN);
-    lcdDrawHLine(dev, left, top+step*3, length, YELLOW);
-    lcdDrawHLine(dev, left, top+step*4, length, PURPLE);
-    lcdDrawHLine(dev, left, top+step*5, length, RED);
+    lcdDrawHLineT(dev, left, top+step*1, length, thickness, GREEN);
+    lcdDrawHLineT(dev, left, top+step*2, length, thickness, CYAN);
+    lcdDrawHLineT(dev, left, top+step*3, length, thickness, YELLOW);
+    lcdDrawHLineT(dev, left, top+step*4, length, thickness, PURPLE);
+    lcdDrawHLineT(dev, left, top+step*5, length, thickness, RED);
 
-    lcdDrawVLine(dev, left+step*1, top, height, GREEN);
-    lcdDrawVLine(dev, left+step*2, top, height, CYAN);
-    lcdDrawVLine(dev, left+step*3, top, height, YELLOW);
-    lcdDrawVLine(dev, left+step*4, top, height, PURPLE);
-    lcdDrawVLine(dev, left+step*5, top, height, RED);
+    lcdDrawVLineT(dev, left+step*1, top, height, thickness, GREEN);
+    lcdDrawVLineT(dev, left+step*2, top, height, thickness, CYAN);
+    lcdDrawVLineT(dev, left+step*3, top, height, thickness, YELLOW);
+    lcdDrawVLineT(dev, left+step*4, top, height, thickness, PURPLE);
+    lcdDrawVLineT(dev, left+step*5, top, height, thickness, RED);
         
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
@@ -222,6 +223,7 @@ void Squares(TFT_t *dev)
     uint16_t width = dev->_width;
     uint16_t height = dev->_height;
     uint16_t step = 16;
+    uint16_t thickness = 3;
 
     lcdFillScreen(dev, BLACK);
 
@@ -230,7 +232,7 @@ void Squares(TFT_t *dev)
     uint16_t color = RED;
     for (uint8_t i = 0; i < 8*step; i+=step)
     {
-        lcdDrawRect(dev, left+i, top+i, width-2*i, height-2*i, color);
+        lcdDrawRectT(dev, left+i, top+i, width-2*i, height-2*i, thickness, color);
         color = color - (4 << 11); // shift to get red component
     }
         

@@ -368,25 +368,29 @@ void lcdFillScreen(TFT_t * dev, uint16_t color) {
  */
 void lcdDrawHLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t length, uint16_t color)
 {
-	if (length == 0) return;
-	if (x1 > dev->_width - 1) return;
-	if (y1 > dev->_height - 1) return;
-
-	uint16_t x2 = x1 + length - 1;
-
-	if (x2 > dev->_width - 1) return;
-
-	spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
-	spi_master_write_addr(dev, x1, x2);
-	spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
-	spi_master_write_addr(dev, y1, y1+1);
-	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
-
-	spi_master_write_packet(dev, color, length);
+	lcdDrawHLineT(dev, x1, y1, length, 1, color);
 }
 
 /**
- * @brief * @brief Fast display a vertical line
+ * @brief Fast display a horizontal line with a thickness
+ * 
+ * @param dev 
+ * @param x1 
+ * @param y1 
+ * @param length 
+ * @param b 
+ * @param color 
+ */
+void lcdDrawHLineT(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t length, uint16_t b, uint16_t color)
+{
+	if (length == 0) return;
+	if (b < 1) return;
+
+	lcdDrawFillRect(dev, x1, y1, length, b, color);
+}
+
+/**
+ * @brief Fast display a vertical line
  * 
  * @param dev 
  * @param x1 
@@ -396,30 +400,38 @@ void lcdDrawHLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t length, uint16_
  */
 void lcdDrawVLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t height, uint16_t color)
 {
-	if (height == 0) return;
-	if (x1 > dev->_width - 1) return;
-	if (y1 > dev->_height - 1) return;
-
-	uint16_t y2 = y1 + height - 1;
-
-	if (y2 > dev->_height - 1) return;
-
-	spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
-	spi_master_write_addr(dev, x1, x1);
-	spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
-	spi_master_write_addr(dev, y1, y2);
-	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
-
-	spi_master_write_packet(dev, color, height);
+	lcdDrawVLineT(dev, x1, y1, height, 1, color);
 }
 
-// Draw line
-// x1:Start X coordinate
-// y1:Start Y coordinate
-// x2:End X coordinate
-// y2:End Y coordinate
-// color:color 
-void lcdDrawLine(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color) {
+/**
+ * @brief Fast display a vertical line with a thickness
+ * 
+ * @param dev 
+ * @param x1 
+ * @param y1 
+ * @param height 
+ * @param p
+ * @param color 
+ */
+void lcdDrawVLineT(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t height, uint16_t b, uint16_t color)
+{
+	if (height == 0) return;
+	if (b < 1) return;
+
+	lcdDrawFillRect(dev, x1, y1, b, height, color);
+}
+
+/**
+ * @brief Draw line by coordinates
+ * 
+ * @param dev 
+ * @param x1 Start X coordinate
+ * @param y1 Start Y coordinate
+ * @param x2 End X coordinate
+ * @param y2 End Y coordinate
+ * @param color Line color
+ */
+void lcdDrawLine(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color) {
 	int i;
 	int dx,dy;
 	int sx,sy;
@@ -472,10 +484,30 @@ void lcdDrawLine(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2
  * @param color border color
  */
 void lcdDrawRect(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) {
-	lcdDrawHLine(dev, x1, y1, width, color);
-	lcdDrawHLine(dev, x1, y1 + height - 1, width, color);
-	lcdDrawVLine(dev, x1, y1, height, color);
-	lcdDrawVLine(dev, x1 + width - 1, y1, height, color);
+	lcdDrawHLineT(dev, x1, y1, width, 1, color);
+	lcdDrawHLineT(dev, x1, y1 + height - 1, width, 1, color);
+	lcdDrawVLineT(dev, x1, y1, height, 1, color);
+	lcdDrawVLineT(dev, x1 + width - 1, y1, height, 1, color);
+}
+
+/**
+ * @brief Draw a rectangle primitive with a border thickness
+ * 
+ * @param dev a pointer to lcd device struct
+ * @param x1 x coordinate of the upper left corner
+ * @param y1 y coordinate of the upper left corner
+ * @param width length of the rectangle
+ * @param height width of the rectangle
+ * @param b border thickness
+ * @param color border color
+ */
+void lcdDrawRectT(TFT_t *dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t b, uint16_t color) {
+	uint16_t yh = y1 + height - b;
+	uint16_t xv = x1 + width - b;
+	lcdDrawHLineT(dev, x1, y1, width, b, color);
+	lcdDrawHLineT(dev, x1, yh, width, b, color);
+	lcdDrawVLineT(dev, x1, y1, height, b, color);
+	lcdDrawVLineT(dev, xv, y1, height, b, color);
 }
 
 // Draw rectangle with angle
