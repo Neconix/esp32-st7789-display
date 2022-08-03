@@ -240,6 +240,34 @@ void Squares(TFT_t *dev)
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
+void RandomRects(TFT_t *dev) 
+{
+    double startTick, diffTick;
+
+    lcdFillScreen(dev, BLACK);
+
+    startTick = getTimeSec();
+
+    uint16_t colors[] = { CYAN, RED, YELLOW, PURPLE, GREEN, BLUE };
+    uint16_t color;
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        for (uint8_t i = 0; i < 6; i++)
+        {
+            uint16_t left = rand() / 1e7;
+            uint16_t top  = rand() / 1e7;
+            uint16_t width  = dev->_width / 4;
+            uint16_t height = dev->_height / 3;
+
+            color = colors[i];
+            lcdDrawFillRect(dev, left, top, width, height, color);
+        }
+    }
+        
+    diffTick = getTimeSec() - startTick;
+    ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
+}
+
 void ST7789_Tests(void *pvParameters)
 {	
     TFT_t dev;
@@ -273,6 +301,8 @@ void ST7789_Tests(void *pvParameters)
         SaturationGreen(&dev);
         WAIT;
         Squares(&dev);
+        WAIT;
+        RandomRects(&dev);
         WAIT;
     }
 }

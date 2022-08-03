@@ -70,6 +70,3 @@ void lcdBacklightOn(TFT_t * dev);
 void lcdInversionOff(TFT_t * dev);
 void lcdInversionOn(TFT_t * dev);
 uint16_t rgb565_conv(uint16_t r, uint16_t g, uint16_t b);
-
-//int lcdDrawUTF8Char(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, uint8_t *utf8, uint16_t color);
-//int lcdDrawUTF8String(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, unsigned char *utfs, uint16_t color);

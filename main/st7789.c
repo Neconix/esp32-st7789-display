@@ -319,6 +319,8 @@ void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint
  */
 void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color) 
 {
+	if (width == 0) return;
+	if (height == 0) return;
 	if (x1 > dev->_width - 1) return;
 	if (y1 > dev->_height - 1) return;
 
@@ -327,8 +329,12 @@ void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint
 	uint16_t _y1 = y1;
 	uint16_t _y2 = y1 + height - 1;
 
-	if (width == 0 || _x2 > dev->_width - 1) return;
-	if (height == 0 || _y2 > dev->_height - 1) return;
+	if (_x2 > dev->_width - 1) {
+		_x2 = dev->_width - 1;
+	}
+	if (_y2 > dev->_height - 1) {
+		_y2 = dev->_height - 1;
+	};
 
 	uint16_t size = width * height;
 
@@ -351,9 +357,13 @@ void lcdDisplayOn(TFT_t * dev) {
 	spi_master_write_command(dev, 0x29);	//Display on
 }
 
-// Fill screen
-// color:color
-void lcdFillScreen(TFT_t * dev, uint16_t color) {
+/**
+ * @brief Fill screen with color
+ * 
+ * @param dev 
+ * @param color 
+ */
+void lcdFillScreen(TFT_t *dev, uint16_t color) {
 	lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
 }
 
