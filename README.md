@@ -74,7 +74,7 @@ sudo usermod -a -G dialout $USER
 In VSCode with installed [ESP-IDF extension](https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/tutorial/install.md):
 
 - git clone https://github.com/Neconix/esp32-st7789-display.git
-- open project folder in VSCode and run from command pallete (Ctrl + Shift + P):
+- open project folder in VSCode and run from command pallete (`Ctrl + Shift + P`):
 - ESP-IDF: Add vscode configuration folder
 - ESP-IDF: SDK configuration editor (menuconfig)
 - ESP-IDF: Select port to use
