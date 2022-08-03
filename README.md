@@ -7,8 +7,8 @@ esp-idf v4.4 or later.
 
 # Hardware Required
 
-* An ESP development board.
-* An SPI-interfaced LCD on ST7789 controller/driver.
+* An ESP development board. (Tested with ESP32 NodeMCU)
+* An SPI-interfaced LCD on ST7789 controller/driver. (Tested with ST7789 240x240 display)
 * An USB cable for power supply and programming.
 
 ### Hardware Connection
@@ -50,6 +50,40 @@ The GPIO number used by this example can be changed in [main.c](main/main.c), wh
 | CONFIG_BL_GPIO           | BCKL    |
 
 Especially, please pay attention to the level used to turn on the LCD backlight, some LCD module needs a low level to turn it on, while others take a high level.
+
+# Build and flash
+
+## ESP-IDF from command line
+
+```shell
+git clone https://github.com/Neconix/esp32-st7789-display.git
+cd esp32-st7789-display
+idf.py set-target esp32
+idf.py menuconfig
+idf.py build
+idf.py -p /dev/ttyUSB0 flash # where /dev/ttyUSB0 is a port to connected ESP32 board
+idf.py -p /dev/ttyUSB0 monitor # used to see output from ESP_LOG
+```
+With some Linux distributions, you may get the Failed to open port /dev/ttyUSB0 error message when flashing the ESP32. Run something like this to add current user to `dialout` group:
+
+```shell
+sudo usermod -a -G dialout $USER
+```
+## VSCode
+
+In VSCode with installed [ESP-IDF extension](https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/tutorial/install.md):
+
+- git clone https://github.com/Neconix/esp32-st7789-display.git
+- open project folder in VSCode and run from command pallete (Ctrl + Shift + P):
+- ESP-IDF: Add vscode configuration folder
+- ESP-IDF: SDK configuration editor (menuconfig)
+- ESP-IDF: Select port to use
+- ESP-IDF: Set espressif device target
+- ESP-IDF: Build your project
+- ESP-IDF: Flash (UART) your project
+- ESP-IDF: Monitor your device
+
+Or run ESP-IDF: Build, Flash and start a monitor on your device.
 
 # Supported functions
 
