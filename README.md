@@ -64,7 +64,7 @@ idf.py build
 idf.py -p /dev/ttyUSB0 flash # where /dev/ttyUSB0 is a port to connected ESP32 board
 idf.py -p /dev/ttyUSB0 monitor # used to see output from ESP_LOG
 ```
-With some Linux distributions, you may get the Failed to open port /dev/ttyUSB0 error message when flashing the ESP32. Run something like this to add current user to `dialout` group:
+With some Linux distributions, you may get the `Failed to open port /dev/ttyUSB0` error message when flashing the ESP32. Run something like this to add current user to `dialout` group:
 
 ```shell
 sudo usermod -a -G dialout $USER
