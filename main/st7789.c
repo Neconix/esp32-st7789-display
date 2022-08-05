@@ -211,6 +211,12 @@ uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 	return total;
 }
 
+/**
+ * @brief Initialize a lcd device with a config
+ * 
+ * @param dev 
+ * @param display_config 
+ */
 void lcdInit(TFT_t *dev, display_config_t *display_config)
 {
 	dev->_width = display_config->width;
@@ -224,39 +230,38 @@ void lcdInit(TFT_t *dev, display_config_t *display_config)
 
 	spi_master_init(dev, display_config);
 
-	spi_master_write_command(dev, 0x01);	//Software Reset
+	spi_master_write_command(dev, LCD_CMD_SWRESET);	//Software Reset
 	delayMS(150);
 
-	spi_master_write_command(dev, 0x11);	//Sleep Out
+	spi_master_write_command(dev, LCD_CMD_SLPOUT);	//Sleep Out
 	delayMS(255);
 	
-	spi_master_write_command(dev,   0x3A);	//Interface Pixel Format
-	
+	spi_master_write_command(dev,   LCD_CMD_COLMOD);	//Interface Pixel Format
 	spi_master_write_data_byte(dev, 0x55); // 0 101 0 101 - 16 bit/pixel, 65K RGB interface
 	delayMS(10);
 	
-	spi_master_write_command(dev, 0x36);	//Memory Data Access Control
+	spi_master_write_command(dev, LCD_CMD_MADCTL);	//Memory Data Access Control
 	spi_master_write_data_byte(dev, 0x00);
 
-	spi_master_write_command(dev, 0x2A);	//Column Address Set
+	spi_master_write_command(dev, LCD_CMD_CASET);	//Column Address Set
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0xF0);
 
-	spi_master_write_command(dev, 0x2B);	//Row Address Set
+	spi_master_write_command(dev, LCD_CMD_RASET);	//Row Address Set
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0x00);
 	spi_master_write_data_byte(dev, 0xF0);
 
-	spi_master_write_command(dev, 0x21);	//Display Inversion On
+	spi_master_write_command(dev, LCD_CMD_INVON);	//Display Inversion On
 	delayMS(10);
 
-	spi_master_write_command(dev, 0x13);	//Normal Display Mode On
+	spi_master_write_command(dev, LCD_CMD_NORON);	//Normal Display Mode On
 	delayMS(10);
 
-	spi_master_write_command(dev, 0x29);	//Display ON
+	spi_master_write_command(dev, LCD_CMD_DISPON);	//Display ON
 	delayMS(255);
 
 	if(dev->_bl >= 0) {
