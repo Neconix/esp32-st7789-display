@@ -38,7 +38,7 @@ typedef struct {
 
 void lcdInit(TFT_t *dev, display_config_t *display_config);
 void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color);
-void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint16_t * colors);
+void lcdDrawPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t *pixels, uint16_t size);
 void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color);
 void lcdDisplayOff(TFT_t * dev);
 void lcdDisplayOn(TFT_t * dev);
@@ -59,6 +59,7 @@ void lcdDrawArrow(TFT_t * dev, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y
 void lcdDrawFillArrow(TFT_t * dev, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t w, uint16_t color);
 int lcdDrawChar(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, uint8_t ascii, uint16_t color);
 int lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *ascii, uint16_t color);
+uint16_t lcdDrawString2(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *str, uint16_t color, uint16_t bgColor);
 int lcdDrawCode(TFT_t * dev, FontxFile *fx, uint16_t x,uint16_t y,uint8_t code,uint16_t color);
 void lcdSetFontDirection(TFT_t * dev, uint16_t);
 void lcdSetFontFill(TFT_t * dev, uint16_t color);

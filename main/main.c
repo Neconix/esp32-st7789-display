@@ -91,6 +91,29 @@ TickType_t TextTest(TFT_t *dev, uint8_t view_iteration) {
     return diffTick;
 }
 
+void TextTest2(TFT_t *dev, uint8_t view_iteration) 
+{
+    double startTick, diffTick;
+    startTick = getTimeSec();
+
+    //lcdFillScreen(dev, BLACK);
+    lcdSetFontDirection(dev, DIRECTION0);
+
+    uint8_t xpos = 15;
+    uint8_t ypos = 20;
+    uint8_t step = 15;
+    
+    char *str[50];
+    sprintf(str, "Time: %.3f", getTimeSec());
+
+    uint16_t strWidth = lcdDrawString2(dev, fx24G, xpos, ypos, str, YELLOW, BLACK);
+    uint16_t strEnd = xpos + strWidth;
+    lcdDrawFillRect(dev, strEnd, ypos, dev->_width - strEnd, ypos + 24, BLACK);
+
+    diffTick = getTimeSec() - startTick;
+    // ESP_LOGI(__FUNCTION__, "Drawing time: %f s", diffTick);
+}
+
 void MenuTest(TFT_t *dev) {
     double startTick, diffTick;
 
@@ -285,25 +308,28 @@ void ST7789_Tests(void *pvParameters)
     };
 
     lcdInit(&dev, &displayConfig);
+    lcdFillScreen(&dev, BLACK);
 
     for (uint16_t i = 1;; i++)
     {
-        TextTest(&dev, i);
-        WAIT;
-        MenuTest(&dev);
-        WAIT;
-        Lines(&dev);
-        WAIT;
-        SaturationBlue(&dev);
-        WAIT;
-        SaturationRed(&dev);
-        WAIT;
-        SaturationGreen(&dev);
-        WAIT;
-        Squares(&dev);
-        WAIT;
-        RandomRects(&dev);
-        WAIT;
+        // TextTest(&dev, i);
+        // WAIT;
+        TextTest2(&dev, i);
+        //WAIT;
+        // MenuTest(&dev);
+        // WAIT;
+        // Lines(&dev);
+        // WAIT;
+        // SaturationBlue(&dev);
+        // WAIT;
+        // SaturationRed(&dev);
+        // WAIT;
+        // SaturationGreen(&dev);
+        // WAIT;
+        // Squares(&dev);
+        // WAIT;
+        // RandomRects(&dev);
+        // WAIT;
     }
 }
 
@@ -348,13 +374,13 @@ void app_main(void)
 {
     InitSpiffs();
 
-    InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
+    //InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
     InitFontx(fx24G,"/spiffs/ILGH24XB.FNT",""); // 12x24Dot Gothic
-    InitFontx(fx32G,"/spiffs/ILGH32XB.FNT",""); // 16x32Dot Gothic
-    InitFontx(fx32L,"/spiffs/LATIN32B.FNT",""); // 16x32Dot Latin
-    InitFontx(fx16M,"/spiffs/ILMH16XB.FNT",""); // 8x16Dot Mincyo
-    InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
-    InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
+    // InitFontx(fx32G,"/spiffs/ILGH32XB.FNT",""); // 16x32Dot Gothic
+    // InitFontx(fx32L,"/spiffs/LATIN32B.FNT",""); // 16x32Dot Latin
+    // InitFontx(fx16M,"/spiffs/ILMH16XB.FNT",""); // 8x16Dot Mincyo
+    // InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
+    // InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
 
     uint32_t stack_depth = 1024 * 6;
 

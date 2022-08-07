@@ -108,8 +108,10 @@ uint8_t getFortHeight(FontxFile *fx) {
 
 /*
  フォントファイルからフォントパターンを取り出す
+ extract font pattern from font file
 
  フォントの並び(16X16ドット)
+ Line of fonts (16X16 dots)
 	00000000	01111111
 	12345678	90123456
  01 pGlyph[000] pGlyph[001]

@@ -17,9 +17,15 @@
 #define TAG "ST7789"
 
 #define WRITE_BUFF_LEN 1024
+#define FONT_GLYPH_BUFF_LEN 256
+#define DISPLAY_GLYPH_BUFF_LEN 512
 
 #define SPI_CMD_MODE  0x00
 #define SPI_DATA_MODE 0x01
+
+static uint16_t packet[WRITE_BUFF_LEN];	       // Write colors buffer
+static uint8_t  dots[FONT_GLYPH_BUFF_LEN];	   // Font file glyph buffet
+static uint16_t glyph[DISPLAY_GLYPH_BUFF_LEN]; // Glyph buffer for display write
 
 void delayMS(int ms) {
 	int _ms = ms + (portTICK_PERIOD_MS - 1);
@@ -167,26 +173,12 @@ bool spi_master_write_color(TFT_t * dev, uint16_t color, uint16_t size)
 	return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
 }
 
-// Add 202001
-bool spi_master_write_colors(TFT_t * dev, uint16_t * colors, uint16_t size)
-{
-	static uint8_t Byte[1024];
-	int index = 0;
-	for(int i=0;i<size;i++) {
-		Byte[index++] = (colors[i] >> 8) & 0xFF;
-		Byte[index++] = colors[i] & 0xFF;
-	}
-	gpio_set_level( dev->_dc, SPI_DATA_MODE);
-	return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
-}
-
 uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 {
-	static uint16_t packet[WRITE_BUFF_LEN];
+	gpio_set_level(dev->_dc, SPI_DATA_MODE);
+
 	// Swapping bytes in a word
 	uint16_t color_word = color >> 8 | (color & 0xFF) << 8;
-
-	gpio_set_level(dev->_dc, SPI_DATA_MODE);
 
 	uint16_t len;
 	uint16_t total = 0;
@@ -195,6 +187,36 @@ uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 
 		for(int i = 0; i < len; i++) {
 			packet[i] = color_word;
+		}
+		
+		spi_transaction_t SPITransaction;
+
+		memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
+		SPITransaction.length = len * 16; // bits in a packet
+		SPITransaction.tx_buffer = packet;
+
+		esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
+		assert(ret==ESP_OK);
+		total += len;
+	}
+
+	return total;
+}
+
+uint16_t spi_master_write_colors(TFT_t * dev, uint16_t *colors, uint16_t size)
+{
+	gpio_set_level(dev->_dc, SPI_DATA_MODE);
+
+	uint16_t len;
+	uint16_t total = 0;
+	uint16_t colorIndex = 0;
+	for (uint16_t p = 0; p <= size; p += WRITE_BUFF_LEN) {
+		len = (size - p) > WRITE_BUFF_LEN ? WRITE_BUFF_LEN : (size - p);
+
+		for(int i = 0; i < len; i++) {
+			// Swapping bytes in a word
+			packet[i] = colors[colorIndex] >> 8 | (colors[colorIndex] & 0xFF) << 8;
+			colorIndex++;
 		}
 		
 		spi_transaction_t SPITransaction;
@@ -290,26 +312,45 @@ void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color){
 }
 
 
-// Draw multi pixel
-// x:X coordinate
-// y:Y coordinate
-// size:Number of colors
-// colors:colors
-void lcdDrawMultiPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t size, uint16_t * colors) {
-	if (x+size > dev->_width) return;
-	if (y >= dev->_height) return;
+/**
+ * @brief Draw multiple pixels to a region
+ * 
+ * @param dev 
+ * @param x 
+ * @param y 
+ * @param width 
+ * @param height 
+ * @param pixels 
+ * @param size 
+ */
+void lcdDrawPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t *pixels, uint16_t size)
+{
+	if (width == 0) return;
+	if (height == 0) return;
+	if (x > dev->_width - 1) return;
+	if (y > dev->_height - 1) return;
 
-	uint16_t _x1 = x + dev->_offsetx;
-	uint16_t _x2 = _x1 + size;
-	uint16_t _y1 = y + dev->_offsety;
-	uint16_t _y2 = _y1;
+	uint16_t _x1 = x;
+	uint16_t _x2 = x + width - 1;
+	uint16_t _y1 = y;
+	uint16_t _y2 = y + height - 1;
 
-	spi_master_write_command(dev, 0x2A);	// set column(x) address
+	if (_x2 > dev->_width - 1) {
+		_x2 = dev->_width - 1;
+	}
+	if (_y2 > dev->_height - 1) {
+		_y2 = dev->_height - 1;
+	};
+
+	uint16_t _size = size <= width * height ? size : width * height;
+
+	spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
 	spi_master_write_addr(dev, _x1, _x2);
-	spi_master_write_command(dev, 0x2B);	// set Page(y) address
+	spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
 	spi_master_write_addr(dev, _y1, _y2);
-	spi_master_write_command(dev, 0x2C);	//	Memory Write
-	spi_master_write_colors(dev, colors, size);
+	spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
+
+	spi_master_write_colors(dev, pixels, _size);
 }
 
 /**
@@ -915,6 +956,44 @@ int lcdDrawChar(TFT_t * dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t asc
 	return next;
 }
 
+uint8_t lcdDrawChar2(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t charCode, uint16_t color, uint16_t bgColor) 
+{
+	uint8_t pw, ph;
+	uint16_t glyphIndex = 0;
+
+	GetFontx(fxs, charCode, &dots, &pw, &ph);
+
+	uint16_t glyphBytes = ceil(pw / 8.0);
+	uint8_t lastBitsCount = pw % 8;
+	uint8_t lastBitNumber = lastBitsCount == 0 ? 0 : 8 - lastBitsCount;
+	uint8_t lastBitIndex = 0;
+	uint8_t bytesCounter = 0;
+	//ESP_LOGD("GetFontx", "rc=%d pw=%d ph=%d glyphBytes=%d lastBits=%d", rc, pw, ph, glyphBytes, lastBitsCount);
+
+	for (uint16_t i = 0; i < ph * glyphBytes; i++) {
+		// Find partial filled byte
+		bytesCounter++;
+		if (bytesCounter == glyphBytes) {
+			lastBitIndex = lastBitNumber;
+			bytesCounter = 0;
+		} else {
+			lastBitIndex = 0;
+		}
+
+		// Convert positive glyph bits to bytes and negative bits to background color
+		for (int8_t bitIndex = 7; bitIndex >= lastBitIndex; bitIndex--) {
+			glyph[glyphIndex] = ((dots[i] >> bitIndex) & 0x01) ? color : bgColor;
+			// TODO buffer overflow control
+			glyphIndex++;
+		}
+	}
+
+	// Send to display memory
+	lcdDrawPixels(dev, x, y, pw, ph, &glyph, glyphIndex);
+
+	return pw;
+}
+
 int lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *ascii, uint16_t color) {
 	int length = strlen(ascii);
 	if(_DEBUG_)printf("lcdDrawString length=%d\n",length);
@@ -934,6 +1013,20 @@ int lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *asci
 	if (dev->_font_direction == 1) return y;
 	if (dev->_font_direction == 3) return y;
 	return 0;
+}
+
+uint16_t lcdDrawString2(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *str, uint16_t color, uint16_t bgColor) 
+{
+	size_t length = strlen(str);
+	uint16_t charX = x;
+	uint16_t charLen = 0;
+
+	for(size_t i = 0; i < length; i++) {
+		charLen = lcdDrawChar2(dev, fx, charX, y, str[i], color, bgColor);
+		charX += charLen;
+	}
+
+	return charX - charLen;
 }
 
 // Draw Non-Alphanumeric character
