@@ -11,3 +11,10 @@
 #define YELLOW			0xFFE0
 #define CYAN			0x07FF
 #define PURPLE			0xF81F
+
+/**
+ * @brief Web colors from extended color table, see https://en.wikipedia.org/wiki/Web_colors
+ * 
+ */
+
+#define WEB_MEDIUM_VIOLET_RED 0xC71585

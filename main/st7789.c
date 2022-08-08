@@ -819,7 +819,7 @@ void lcdDrawFillArrow(TFT_t * dev, uint16_t x0,uint16_t y0,uint16_t x1,uint16_t 
 // RGB565 is R(5)+G(6)+B(5)=16bit color format.
 // Bit image "RRRRRGGGGGGBBBBB"
 uint16_t rgb565_conv(uint16_t r,uint16_t g,uint16_t b) {
-	return (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+	return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
 // Draw ASCII character
@@ -956,13 +956,32 @@ int lcdDrawChar(TFT_t * dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t asc
 	return next;
 }
 
+/**
+ * @brief Draw a char by code with a color and background color
+ * 
+ * @param dev 
+ * @param fxs 
+ * @param x 
+ * @param y 
+ * @param charCode 
+ * @param color 
+ * @param bgColor 
+ * @return uint8_t 
+ */
 uint8_t lcdDrawChar2(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t charCode, uint16_t color, uint16_t bgColor) 
 {
 	uint8_t pw, ph;
-	uint16_t glyphIndex = 0;
 
 	GetFontx(fxs, charCode, &dots, &pw, &ph);
 
+	if (x + pw > dev->_width - 1) {
+		return 0;
+	}
+	if (y + ph > dev->_height - 1) {
+		return 0;
+	}
+
+	uint16_t glyphIndex = 0;
 	uint16_t glyphBytes = ceil(pw / 8.0);
 	uint8_t lastBitsCount = pw % 8;
 	uint8_t lastBitNumber = lastBitsCount == 0 ? 0 : 8 - lastBitsCount;
@@ -1018,15 +1037,18 @@ int lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *asci
 uint16_t lcdDrawString2(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *str, uint16_t color, uint16_t bgColor) 
 {
 	size_t length = strlen(str);
-	uint16_t charX = x;
-	uint16_t charLen = 0;
+	uint16_t strWidth = 0;
+	uint16_t charWidth = 0;
 
 	for(size_t i = 0; i < length; i++) {
-		charLen = lcdDrawChar2(dev, fx, charX, y, str[i], color, bgColor);
-		charX += charLen;
+		charWidth = lcdDrawChar2(dev, fx, strWidth, y, str[i], color, bgColor);
+		if (charWidth == 0) {
+			break;
+		}
+		strWidth += charWidth;
 	}
 
-	return charX - charLen;
+	return strWidth;
 }
 
 // Draw Non-Alphanumeric character

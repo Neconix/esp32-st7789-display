@@ -104,9 +104,11 @@ void TextTest2(TFT_t *dev, uint8_t view_iteration)
     uint8_t step = 15;
     
     char *str[50];
-    sprintf(str, "Time: %.3f", getTimeSec());
+    sprintf(str, "Time 100500: %.3f", getTimeSec());
 
-    uint16_t strWidth = lcdDrawString2(dev, fx24G, xpos, ypos, str, YELLOW, BLACK);
+    uint16_t color = rgb565_conv(0xC7, 0x15, 0x85);
+
+    uint16_t strWidth = lcdDrawString2(dev, fx24G, xpos, ypos, str, color, BLACK);
     uint16_t strEnd = xpos + strWidth;
     lcdDrawFillRect(dev, strEnd, ypos, dev->_width - strEnd, ypos + 24, BLACK);
 
