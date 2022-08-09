@@ -15,7 +15,7 @@
 #include "colors.h"
 #include "fontx.h"
 
-#define	INTERVAL 3000/portTICK_PERIOD_MS
+#define	INTERVAL 2000/portTICK_PERIOD_MS
 #define WAIT vTaskDelay(INTERVAL)
 
 #define CONFIG_WIDTH        240
@@ -38,7 +38,8 @@ static FontxFile fx16M[2];
 static FontxFile fx24M[2];
 static FontxFile fx32M[2];
 
-static void SPIFFS_Directory(char * path) {
+static void SPIFFS_Directory(char * path)
+{
     DIR* dir = opendir(path);
     assert(dir != NULL);
     while (true) {
@@ -57,52 +58,43 @@ double getTimeSec( void )
     return time;
 }
 
-TickType_t TextTest(TFT_t *dev, uint8_t view_iteration) {
-    TickType_t startTick, endTick, diffTick;
-    startTick = xTaskGetTickCount();
+void TimerTextTest(TFT_t *dev)
+{
+    uint8_t xpos = 30;
+    uint8_t ypos = 20;
+    char str[50];
+    uint16_t bgColor = rgb24to16(WEB_BLACK);
+    uint16_t textColor = rgb24to16(WEB_ORANGE_RED);
+    uint8_t displayPeriod = 5;
+    double startTime = getTimeSec();
 
-    lcdFillScreen(dev, BLACK);
-    lcdSetFontDirection(dev, DIRECTION0);
+    lcdFillScreen(dev, bgColor);
 
-    uint8_t xpos = 5;
-    uint8_t ypos = 15;
+    while (getTimeSec() - startTime <= displayPeriod) {
+        sprintf(str, "Elapsed %.2fs", getTimeSec());
 
-    char *s;
-    
-    s = "Small text line 1";
-    lcdDrawString(dev, fx16G, xpos, ypos, s, WHITE);
+        uint16_t strWidth = lcdDrawString(dev, fx24G, xpos, ypos, str, textColor, bgColor);
+        uint16_t strEnd = xpos + strWidth;
+        // Filling a background after the string to the display edge
+        lcdDrawFillRect(dev, strEnd, ypos, dev->_width - strEnd, ypos + 24, bgColor);
+    }
 
-    s = "Medium text line 2";
-    lcdDrawString(dev, fx16G, xpos, ypos*2, s, RED);
-
-    s = "Medium text line 3";
-    lcdDrawString(dev, fx24G, xpos, ypos*3 + 5, s, BLUE);
-
-    s = "Big text line 4";
-    lcdDrawString(dev, fx32G, xpos, ypos*4 + 18, s, GREEN);
-
-    char s2[30];
-    sprintf(s2, "Iteration: %d", view_iteration);
-    lcdDrawString(dev, fx24G, xpos, ypos*5 + 22, s2, YELLOW);
-
-    endTick = xTaskGetTickCount();
-    diffTick = endTick - startTick;
-    ESP_LOGI(__FUNCTION__, "elapsed time[ms]:%d",diffTick*portTICK_PERIOD_MS);
-    return diffTick;
+    ESP_LOGI(__FUNCTION__, "Completed.");
 }
 
-void MenuTest(TFT_t *dev) {
+void MenuTest(TFT_t *dev)
+{
     double startTick, diffTick;
 
     lcdFillScreen(dev, BLACK);
     lcdSetFontDirection(dev, DIRECTION0);
 
     uint16_t xpos = 5;
-    uint16_t ypos = 28;
+    uint16_t ypos = 5;
     uint16_t step = 30;
     uint16_t items = 8;
 
-    uint16_t rect_x1 = 2;
+    uint16_t rect_x1 = 0;
     uint16_t width = dev->_width - 2;
     uint16_t height = 24;
     uint16_t rect_y1 = 4;
@@ -112,7 +104,7 @@ void MenuTest(TFT_t *dev) {
     for (int i = 0; i < items; i++)
     {
         sprintf(s, "Menu item %d", i+1);
-        lcdDrawString(dev, fx24G, xpos, ypos, s, GREEN);
+        lcdDrawString(dev, fx24G, xpos, ypos, s, GREEN, BLACK);
         ypos += step;
     }
 
@@ -130,11 +122,11 @@ void MenuTest(TFT_t *dev) {
 
         diffTick = getTimeSec() - startTick;
         ESP_LOGI(__FUNCTION__, "Menu rect '%d' drawing time: %f s", i, diffTick);
-        vTaskDelay(100/portTICK_PERIOD_MS);
+        vTaskDelay(200/portTICK_PERIOD_MS);
     }
 }
 
-void SaturationBlue(TFT_t *dev) 
+void SaturationBlue(TFT_t *dev)
 {
     double startTick, diffTick;
     startTick = getTimeSec();
@@ -143,12 +135,12 @@ void SaturationBlue(TFT_t *dev)
     {
         lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
     }
-    
+
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
-void SaturationRed(TFT_t *dev) 
+void SaturationRed(TFT_t *dev)
 {
     double startTick, diffTick;
     startTick = getTimeSec();
@@ -160,12 +152,12 @@ void SaturationRed(TFT_t *dev)
         color = i << 11;
         lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
     }
-        
+
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
-void SaturationGreen(TFT_t *dev) 
+void SaturationGreen(TFT_t *dev)
 {
     double startTick, diffTick;
     startTick = getTimeSec();
@@ -178,12 +170,12 @@ void SaturationGreen(TFT_t *dev)
         color = i << 5;
         lcdDrawFillRect(dev, 0, 0, dev->_width, dev->_height, color);
     }
-        
+
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
-void Lines(TFT_t *dev) 
+void Lines(TFT_t *dev)
 {
     double startTick, diffTick;
 
@@ -209,12 +201,12 @@ void Lines(TFT_t *dev)
     lcdDrawVLineT(dev, left+step*3, top, height, thickness, YELLOW);
     lcdDrawVLineT(dev, left+step*4, top, height, thickness, PURPLE);
     lcdDrawVLineT(dev, left+step*5, top, height, thickness, RED);
-        
+
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
-void Squares(TFT_t *dev) 
+void Squares(TFT_t *dev)
 {
     double startTick, diffTick;
 
@@ -235,12 +227,12 @@ void Squares(TFT_t *dev)
         lcdDrawRectT(dev, left+i, top+i, width-2*i, height-2*i, thickness, color);
         color = color - (4 << 11); // shift to get red component
     }
-        
+
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
-void RandomRects(TFT_t *dev) 
+void RandomRects(TFT_t *dev)
 {
     double startTick, diffTick;
 
@@ -263,13 +255,13 @@ void RandomRects(TFT_t *dev)
             lcdDrawFillRect(dev, left, top, width, height, color);
         }
     }
-        
+
     diffTick = getTimeSec() - startTick;
     ESP_LOGI(__FUNCTION__, "drawing time: %f s", diffTick);
 }
 
 void ST7789_Tests(void *pvParameters)
-{	
+{
     TFT_t dev;
     display_config_t displayConfig = {
         .width = CONFIG_WIDTH,
@@ -281,15 +273,15 @@ void ST7789_Tests(void *pvParameters)
         .pinRESET = CONFIG_RESET_GPIO,
         .pinBL = CONFIG_BL_GPIO,
         .spiHost = SPI3_HOST,
-	    .spiFrequency = SPI_MASTER_FREQ_40M
+        .spiFrequency = SPI_MASTER_FREQ_40M
     };
 
     lcdInit(&dev, &displayConfig);
+    lcdFillScreen(&dev, BLACK);
 
     for (uint16_t i = 1;; i++)
     {
-        TextTest(&dev, i);
-        WAIT;
+        TimerTextTest(&dev);
         MenuTest(&dev);
         WAIT;
         Lines(&dev);
@@ -348,13 +340,13 @@ void app_main(void)
 {
     InitSpiffs();
 
-    InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
+    //InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
     InitFontx(fx24G,"/spiffs/ILGH24XB.FNT",""); // 12x24Dot Gothic
-    InitFontx(fx32G,"/spiffs/ILGH32XB.FNT",""); // 16x32Dot Gothic
-    InitFontx(fx32L,"/spiffs/LATIN32B.FNT",""); // 16x32Dot Latin
-    InitFontx(fx16M,"/spiffs/ILMH16XB.FNT",""); // 8x16Dot Mincyo
-    InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
-    InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
+    // InitFontx(fx32G,"/spiffs/ILGH32XB.FNT",""); // 16x32Dot Gothic
+    // InitFontx(fx32L,"/spiffs/LATIN32B.FNT",""); // 16x32Dot Latin
+    // InitFontx(fx16M,"/spiffs/ILMH16XB.FNT",""); // 8x16Dot Mincyo
+    // InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
+    // InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
 
     uint32_t stack_depth = 1024 * 6;
 
