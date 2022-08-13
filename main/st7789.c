@@ -85,9 +85,11 @@ void spi_master_init(TFT_t *dev, display_config_t *display_config)
     spi_device_interface_config_t devcfg;
     memset(&devcfg, 0, sizeof(devcfg));
     devcfg.clock_speed_hz = display_config->spiFrequency;
-    devcfg.queue_size = 7;
-    devcfg.mode = 2;
-    devcfg.flags = SPI_DEVICE_NO_DUMMY;
+    devcfg.queue_size = 10;
+    devcfg.mode = 3; // SPI Mode forcorrect reading possibility (found from tests on a bare-metal)
+    //devcfg.input_delay_ns = 0;
+    devcfg.flags = SPI_DEVICE_3WIRE;       // No MISO wire, write and read on a same line
+    devcfg.flags |= SPI_DEVICE_HALFDUPLEX; // Correct read oon the same line
 
     if ( display_config->pinCS >= 0 ) {
         devcfg.spics_io_num = display_config->pinCS;
@@ -134,7 +136,7 @@ bool spi_master_write_command(TFT_t * dev, uint8_t cmd)
 
 bool spi_master_write_data_byte(TFT_t * dev, uint8_t data)
 {
-    gpio_set_level( dev->_dc, SPI_DATA_MODE);
+    gpio_set_level(dev->_dc, SPI_DATA_MODE);
     return spi_master_write_byte(dev->_SPIHandle, &data, 1);
 }
 
@@ -201,6 +203,41 @@ uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
     return total;
 }
 
+/**
+ * @brief Under development
+ * 
+ * @param dev 
+ * @param colors 
+ * @param size 
+ * @return uint16_t 
+ */
+uint16_t spi_master_read_packet(TFT_t *dev, uint16_t *colors, uint16_t size)
+{
+    gpio_set_level(dev->_dc, SPI_DATA_MODE);
+
+    //ESP_LOG_BUFFER_HEX("colors input", colors, size);
+    ESP_LOGD("size", "size: %d", size);
+
+    spi_transaction_t SPITransaction;
+
+    memset( &SPITransaction, 0, sizeof(spi_transaction_t) );
+    SPITransaction.flags = SPI_TRANS_VARIABLE_DUMMY;
+    // SPITransaction.
+    SPITransaction.length = size * 16;
+    //SPITransaction.rxlength = size * 16; // bits in a packet
+    SPITransaction.tx_buffer = NULL;
+    SPITransaction.rx_buffer = colors;
+
+    esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
+    assert(ret==ESP_OK);
+
+    ESP_LOG_BUFFER_HEX("colors", colors, size);
+    ESP_LOGD("rxlength", "%d", SPITransaction.rxlength);
+
+    // TODO: Swapping bytes in a color
+    return SPITransaction.rxlength / 16;
+}
+
 uint16_t spi_master_write_colors(TFT_t * dev, uint16_t *colors, uint16_t size)
 {
     gpio_set_level(dev->_dc, SPI_DATA_MODE);
@@ -241,6 +278,8 @@ void lcdInit(TFT_t *dev, display_config_t *display_config)
 {
     dev->_width = display_config->width;
     dev->_height = display_config->height;
+    dev->maxX = display_config->width - 1;
+    dev->maxY = display_config->height - 1;
     dev->_offsetx = 0;
     dev->_offsety = 0;
     dev->_font_direction = DIRECTION0;
@@ -258,6 +297,7 @@ void lcdInit(TFT_t *dev, display_config_t *display_config)
 
     spi_master_write_command(dev,   LCD_CMD_COLMOD);	//Interface Pixel Format
     spi_master_write_data_byte(dev, 0x55); // 0 101 0 101 - 16 bit/pixel, 65K RGB interface
+    // spi_master_write_data_byte(dev, 0x66); // 18 bit color format
     delayMS(10);
 
     spi_master_write_command(dev, LCD_CMD_MADCTL);	//Memory Data Access Control
@@ -389,6 +429,57 @@ void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint
     spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
 
     spi_master_write_packet(dev, color, size);
+}
+
+/**
+ * @brief Read colors from region in display memory to buffer (!under development!)
+ * 
+ * @param dev 
+ * @param x 
+ * @param y 
+ * @param width 
+ * @param height 
+ * @param colors 
+ * @param size 
+ */
+uint16_t lcdReadRegion(TFT_t * dev, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t *colors)
+{
+    if (width == 0) return 0;
+    if (height == 0) return 0;
+    if (x > dev->maxX) return 0;
+    if (y > dev->maxY) return 0;
+
+    uint16_t _x1 = x;
+    uint16_t _x2 = x + width - 1;
+    uint16_t _y1 = y;
+    uint16_t _y2 = y + height - 1;
+
+    if (_x2 > dev->maxX) {
+        _x2 = dev->maxX;
+    }
+    if (_y2 > dev->maxY) {
+        _y2 = dev->maxY;
+    };
+
+    uint16_t colorsLen = width * height;
+
+    ESP_LOGD("xy", "_x1:%d _x2:%d _y1:%d _y2:%d", _x1, _x2, _y1, _y2);
+
+    spi_master_write_command(dev, LCD_CMD_COLMOD);  // Interface Pixel Format
+    spi_master_write_data_byte(dev, 0x66);          // Needs by memory write (18bits color coding)
+
+    spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
+    spi_master_write_addr(dev, _x1, _x2);
+    spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
+    spi_master_write_addr(dev, _y1, _y2);
+
+    spi_master_write_command(dev, LCD_CMD_RAMRD);	//	Memory read
+    uint16_t size = spi_master_read_packet(dev, colors, colorsLen);      // Read colors to buffer
+
+    spi_master_write_command(dev, LCD_CMD_COLMOD);	// Interface Pixel Format
+    spi_master_write_data_byte(dev, 0x55);          // Change back
+
+    return size;
 }
 
 // Display OFF
@@ -892,6 +983,65 @@ uint8_t lcdDrawChar(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t 
 }
 
 /**
+ * @brief Not implemented
+ * 
+ * @param dev 
+ * @param fxs 
+ * @param x 
+ * @param y 
+ * @param charCode 
+ * @param color 
+ * @param bgColor 
+ * @return uint8_t 
+ */
+uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t charCode, uint16_t color, uint16_t bgColor)
+{
+    uint8_t pw, ph;
+
+    GetFontx(fxs, charCode, &dots, &pw, &ph);
+
+    if (x + pw > dev->_width - 1) {
+        return 0;
+    }
+    if (y + ph > dev->_height - 1) {
+        return 0;
+    }
+
+    uint16_t glyphIndex = 0;
+    uint16_t glyphBytes = ceil(pw / 8.0);
+    uint8_t lastBitsCount = pw % 8;
+    uint8_t lastBitNumber = lastBitsCount == 0 ? 0 : 8 - lastBitsCount;
+    uint8_t lastBitIndex = 0;
+    uint8_t bytesCounter = 0;
+    //ESP_LOGD("GetFontx", "rc=%d pw=%d ph=%d glyphBytes=%d lastBits=%d", rc, pw, ph, glyphBytes, lastBitsCount);
+
+    // Fill glyph buffer with colors from display memory
+
+    for (uint16_t i = 0; i < ph * glyphBytes; i++) {
+        // Find partial filled byte
+        bytesCounter++;
+        if (bytesCounter == glyphBytes) {
+            lastBitIndex = lastBitNumber;
+            bytesCounter = 0;
+        } else {
+            lastBitIndex = 0;
+        }
+
+        // Convert positive glyph bits to bytes and negative bits to background color
+        for (int8_t bitIndex = 7; bitIndex >= lastBitIndex; bitIndex--) {
+            glyph[glyphIndex] = ((dots[i] >> bitIndex) & 0x01) ? color : bgColor;
+            // TODO buffer overflow control
+            glyphIndex++;
+        }
+    }
+
+    // Send to display memory
+    lcdDrawPixels(dev, x, y, pw, ph, &glyph, glyphIndex);
+
+    return pw;
+}
+
+/**
  * @brief Fast draw a string with a color and background color. Returns a string length in pixels.
  *
  * @param dev
@@ -912,6 +1062,35 @@ uint16_t lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char 
 
     for(size_t i = 0; i < length; i++) {
         charWidth = lcdDrawChar(dev, fx, strX + strWidth, y, str[i], color, bgColor);
+        if (charWidth == 0) {
+            break;
+        }
+        strWidth += charWidth;
+    }
+
+    return strWidth;
+}
+
+/**
+ * @brief Not implemented
+ * 
+ * @param dev 
+ * @param fx 
+ * @param x 
+ * @param y 
+ * @param str 
+ * @param color 
+ * @return uint16_t 
+ */
+uint16_t lcdDrawStringS(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *str, uint16_t color)
+{
+    size_t length = strlen(str);
+    uint16_t strX = x;
+    uint16_t strWidth = 0;
+    uint16_t charWidth = 0;
+
+    for(size_t i = 0; i < length; i++) {
+        charWidth = lcdDrawCharS(dev, fx, strX + strWidth, y, str[i], color, color);
         if (charWidth == 0) {
             break;
         }
@@ -973,4 +1152,43 @@ void lcdInversionOff(TFT_t * dev) {
 // Display Inversion On
 void lcdInversionOn(TFT_t * dev) {
     spi_master_write_command(dev, 0x21);	//Display Inversion On
+}
+
+/**
+ * @brief Reading display data access control (MADCTL) bits information
+ * 
+ * @param dev 
+ * @param mad_ctl 
+ * @return uint16_t 
+ */
+esp_err_t lcdReadMemoryDataAccessControl(TFT_t *dev, mad_ctl_t *madCtl)
+{
+    spi_master_write_command(dev, LCD_CMD_RDD_MADCTL);
+
+    gpio_set_level(dev->_dc, SPI_DATA_MODE);
+
+    spi_transaction_t SPITransaction;
+    memset(&SPITransaction, 0, sizeof(spi_transaction_t));
+    SPITransaction.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_MODE_OCT;
+    SPITransaction.length = 8 * 1; // in bits
+    SPITransaction.rxlength = SPITransaction.length;
+
+    esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
+
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    uint8_t madByte = SPITransaction.rx_data[0];
+
+    madCtl->MH  = madByte >> 2 & 0x01;
+    madCtl->RGB = madByte >> 3 & 0x01;
+    madCtl->ML  = madByte >> 4 & 0x01;
+	madCtl->MV  = madByte >> 5 & 0x01;
+	madCtl->MX  = madByte >> 6 & 0x01;
+	madCtl->MY  = madByte >> 7 & 0x01;
+
+    ESP_LOG_BUFFER_HEX("rx_data", SPITransaction.rx_data, 4);
+
+    return ret;
 }

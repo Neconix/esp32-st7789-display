@@ -10,6 +10,8 @@
 typedef struct {
 	uint16_t _width;
 	uint16_t _height;
+	uint16_t maxX;
+	uint16_t maxY;
 	uint16_t _offsetx;
 	uint16_t _offsety;
 	uint16_t _font_direction;
@@ -35,6 +37,15 @@ typedef struct {
 	spi_host_device_t spiHost;
 	int spiFrequency;
 } display_config_t;
+
+typedef struct {
+	uint8_t MH;  ///< Display Data Latch Data Order: “0” = LCD Refresh Left to Right; “1” = LCD Refresh Right to Left.
+	uint8_t RGB; ///< RGB/BGR Order: “0” = RGB; “1” = BGR.
+	uint8_t ML;  ///< Line Address Order: “0” = LCD Refresh Top to Bottom; “1” = LCD Refresh Bottom to Top.
+	uint8_t MV;	 ///< Page/Column Order: “0” = Normal Mode. “1” = Reverse Mode.
+	uint8_t MX;  ///< Column Address Order: “0” = Left to Right; “1” = Right to Left.
+	uint8_t MY;  ///< Page Address Order: “0” = Top to Bottom. “1” = Bottom to Top.
+} mad_ctl_t;
 
 void lcdInit(TFT_t *dev, display_config_t *display_config);
 void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color);
@@ -68,5 +79,6 @@ void lcdBacklightOff(TFT_t * dev);
 void lcdBacklightOn(TFT_t * dev);
 void lcdInversionOff(TFT_t * dev);
 void lcdInversionOn(TFT_t * dev);
+esp_err_t lcdReadMemoryDataAccessControl(TFT_t *dev, mad_ctl_t *mad_ctl);
 uint16_t rgb565_conv(uint16_t r, uint16_t g, uint16_t b);
 uint16_t rgb24to16(uint32_t color);
