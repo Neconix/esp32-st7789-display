@@ -10,6 +10,7 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "driver/spi_master.h"
+#include "math.h"
 
 #include "st7789.h"
 #include "colors.h"
@@ -80,6 +81,42 @@ void TimerTextTest(TFT_t *dev)
     }
 
     ESP_LOGI(__FUNCTION__, "Completed.");
+}
+
+void TextComplexBackgroundTest(TFT_t *dev)
+{
+    uint16_t step = ceil(dev->_width / (float)BLUE);
+    uint16_t color = BLACK + 1;
+    uint16_t colorStep = 1;
+
+    double startTime = getTimeSec();
+
+    // Drawing blue gradient
+    for (uint16_t x = 0; x < dev->_width; x += step)
+    {
+        lcdDrawFillRect(dev, x, 0, step, dev->_height, color);
+        color += colorStep;
+    }
+
+    // Drawing strings
+    char *str1 = "With background";
+    char *str2 = "Without background";
+
+    lcdDrawString(dev, fx24G, 10, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
+    // lcdDrawStringS(dev, fx24G, 10, 100, str2, rgb24to16(WEB_GOLDENROD));
+
+    uint16_t colors[1024] = { 0xD, 0xE, 0xF };
+    // uint16_t colors_size = lcdReadRegion(dev, 50, 50, 100, 2, &colors);
+
+    double endTime = getTimeSec() - startTime;
+    ESP_LOGI(__FUNCTION__, "Drawing time: %f s", endTime);
+}
+
+void ReadMadCtlTest(TFT_t *dev)
+{
+    mad_ctl_t madCtl;
+    lcdReadMemoryDataAccessControl(dev, &madCtl);
+    ESP_LOGI("MADCTL flags", "MX=%d RGB=%d ML=%d MV=%d MX=%d MY=%d", madCtl.MH, madCtl.RGB, madCtl.ML, madCtl.MV, madCtl.MX, madCtl.MY);
 }
 
 void MenuTest(TFT_t *dev)
@@ -273,16 +310,19 @@ void ST7789_Tests(void *pvParameters)
         .pinRESET = CONFIG_RESET_GPIO,
         .pinBL = CONFIG_BL_GPIO,
         .spiHost = SPI3_HOST,
-        .spiFrequency = SPI_MASTER_FREQ_40M
+        //.spiFrequency = SPI_MASTER_FREQ_40M
+        .spiFrequency = SPI_MASTER_FREQ_8M // Reading worked correct only on this speed
     };
 
     lcdInit(&dev, &displayConfig);
     lcdFillScreen(&dev, BLACK);
 
-    for (uint16_t i = 1;; i++)
+    for (;;)
     {
         TimerTextTest(&dev);
         MenuTest(&dev);
+        WAIT;
+        TextComplexBackgroundTest(&dev);
         WAIT;
         Lines(&dev);
         WAIT;
@@ -295,6 +335,8 @@ void ST7789_Tests(void *pvParameters)
         Squares(&dev);
         WAIT;
         RandomRects(&dev);
+        WAIT;
+        ReadMadCtlTest(&dev);
         WAIT;
     }
 }
