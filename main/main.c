@@ -124,7 +124,6 @@ void MenuTest(TFT_t *dev)
     double startTick, diffTick;
 
     lcdFillScreen(dev, BLACK);
-    lcdSetFontDirection(dev, DIRECTION0);
 
     uint16_t xpos = 5;
     uint16_t ypos = 5;
@@ -198,7 +197,7 @@ void SaturationGreen(TFT_t *dev)
 {
     double startTick, diffTick;
     startTick = getTimeSec();
-
+static TFT_t display;
     uint16_t color;
     // Green color have one more bit wide
     for (uint16_t i = 0; i < 0x3F; i++)
@@ -299,45 +298,31 @@ void RandomRects(TFT_t *dev)
 
 void ST7789_Tests(void *pvParameters)
 {
-    TFT_t dev;
-    display_config_t displayConfig = {
-        .width = CONFIG_WIDTH,
-        .height = CONFIG_HEIGHT,
-        .pinMOSI = CONFIG_MOSI_GPIO,
-        .pinSCLK = CONFIG_SCLK_GPIO,
-        .pinCS = CONFIG_CS_GPIO,
-        .pinDC = CONFIG_DC_GPIO,
-        .pinRESET = CONFIG_RESET_GPIO,
-        .pinBL = CONFIG_BL_GPIO,
-        .spiHost = SPI3_HOST,
-        //.spiFrequency = SPI_MASTER_FREQ_40M
-        .spiFrequency = SPI_MASTER_FREQ_8M // Reading worked correct only on this speed
-    };
-
-    lcdInit(&dev, &displayConfig);
-    lcdFillScreen(&dev, BLACK);
+    TFT_t *pDisplay = (TFT_t *)pvParameters;
+    lcdFillScreen(pDisplay, BLACK);
 
     for (;;)
     {
-        TimerTextTest(&dev);
-        MenuTest(&dev);
+        TimerTextTest(pDisplay);
+        MenuTest(pDisplay);
         WAIT;
-        TextComplexBackgroundTest(&dev);
+        TextComplexBackgroundTest(pDisplay);
         WAIT;
-        Lines(&dev);
+        Lines(pDisplay);
         WAIT;
-        SaturationBlue(&dev);
+        SaturationBlue(pDisplay);
         WAIT;
-        SaturationRed(&dev);
+        SaturationRed(pDisplay);
         WAIT;
-        SaturationGreen(&dev);
+        SaturationGreen(pDisplay);
         WAIT;
-        Squares(&dev);
+        Squares(pDisplay);
         WAIT;
-        RandomRects(&dev);
+        RandomRects(pDisplay);
         WAIT;
-        ReadMadCtlTest(&dev);
-        WAIT;
+        // Need a slower interface for correct working, see InitDisplay()
+        // ReadMadCtlTest(pDisplay);
+        // WAIT;
     }
 }
 
@@ -377,10 +362,45 @@ void InitSpiffs() {
     SPIFFS_Directory("/spiffs/");
 }
 
+void InitDisplay(TFT_t *display)
+{
+    ESP_LOGI(TAG, "Initializing display");
+    spi_device_interface_config_t spiInterfaceConfig;
+    memset(&spiInterfaceConfig, 0, sizeof(spiInterfaceConfig));
+    spiInterfaceConfig.clock_speed_hz = SPI_MASTER_FREQ_40M; // Fast write
+    // spiInterfaceConfig.clock_speed_hz = SPI_MASTER_FREQ_8M; // Reading worked correct only on this speed
+    spiInterfaceConfig.queue_size = 10;
+    spiInterfaceConfig.mode = 3;                       // SPI Mode for correct reading possibility (found from tests on a bare-metal)
+    spiInterfaceConfig.flags = SPI_DEVICE_3WIRE;       // No MISO wire, write and read on a same line
+    // spiInterfaceConfig.flags |= SPI_DEVICE_HALFDUPLEX; // Correct read on the same line
+
+    if ( CONFIG_CS_GPIO >= 0 ) {
+        spiInterfaceConfig.spics_io_num = CONFIG_CS_GPIO;
+    } else {
+        spiInterfaceConfig.spics_io_num = GPIO_NUM_NC;
+    }
+
+    display_config_t displayConfig = {
+        .width = CONFIG_WIDTH,
+        .height = CONFIG_HEIGHT,
+        .pinMOSI = CONFIG_MOSI_GPIO,
+        .pinSCLK = CONFIG_SCLK_GPIO,
+        .pinCS = CONFIG_CS_GPIO,
+        .pinDC = CONFIG_DC_GPIO,
+        .pinRESET = CONFIG_RESET_GPIO,
+        .pinBL = CONFIG_BL_GPIO,
+        .spiHost = SPI3_HOST
+    };
+
+    lcdInit(display, &displayConfig, &spiInterfaceConfig);
+}
 
 void app_main(void)
 {
+    static TFT_t display;
+
     InitSpiffs();
+    InitDisplay(&display);
 
     //InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
     InitFontx(fx24G,"/spiffs/ILGH24XB.FNT",""); // 12x24Dot Gothic
@@ -390,9 +410,7 @@ void app_main(void)
     // InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
     // InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
 
-    uint32_t stack_depth = 1024 * 6;
+    ESP_LOGI(TAG, "Init complete");
 
-    ESP_LOGI(TAG, "Stack depth: %d", stack_depth);
-
-    xTaskCreate(ST7789_Tests, "ST7789_Tests", stack_depth, NULL, 2, NULL);
+    xTaskCreate(ST7789_Tests, "ST7789_Tests", 1024 * 6, &display, 2, NULL);
 }

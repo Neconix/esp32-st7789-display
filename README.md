@@ -90,7 +90,7 @@ Or run ESP-IDF: Build, Flash and start a monitor on your device.
 Current supported functions list:
 
 ```C
-void lcdInit(TFT_t *dev, display_config_t *display_config);
+void lcdInit(TFT_t *dev, display_config_t *display_config, spi_device_interface_config_t *spiInterfaceConfig);
 void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color);
 void lcdDrawPixels(TFT_t * dev, uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t *pixels, uint16_t size);
 void lcdDrawFillRect(TFT_t * dev, uint16_t x1, uint16_t y1, uint16_t width, uint16_t height, uint16_t color);
@@ -113,6 +113,7 @@ void lcdDrawArrow(TFT_t * dev, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y
 void lcdDrawFillArrow(TFT_t * dev, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t w, uint16_t color);
 uint8_t  lcdDrawChar(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t charCode, uint16_t color, uint16_t bgColor);
 uint16_t lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *str, uint16_t color, uint16_t bgColor);
+uint16_t lcdDrawStringS(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char *str, uint16_t color);
 void lcdSetFontDirection(TFT_t * dev, uint16_t);
 void lcdSetFontFill(TFT_t * dev, uint16_t color);
 void lcdUnsetFontFill(TFT_t * dev);
@@ -122,6 +123,7 @@ void lcdBacklightOff(TFT_t * dev);
 void lcdBacklightOn(TFT_t * dev);
 void lcdInversionOff(TFT_t * dev);
 void lcdInversionOn(TFT_t * dev);
+esp_err_t lcdReadMemoryDataAccessControl(TFT_t *dev, mad_ctl_t *mad_ctl);
 uint16_t rgb565_conv(uint16_t r, uint16_t g, uint16_t b);
 uint16_t rgb24to16(uint32_t color);
 ```

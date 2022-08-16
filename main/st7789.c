@@ -31,24 +31,19 @@ void delayMS(int ms) {
     vTaskDelay(xTicksToDelay);
 }
 
-void spi_master_init(TFT_t *dev, display_config_t *display_config)
+void spi_master_init(TFT_t *dev, display_config_t *display_config, spi_device_interface_config_t *spiInterfaceConfig)
 {
-    esp_err_t ret;
-
-    ESP_LOGI(TAG, "GPIO_CS=%d", display_config->pinCS);
-    if ( display_config->pinCS >= 0 ) {
+    if (display_config->pinCS >= 0) {
         gpio_reset_pin( display_config->pinCS );
         gpio_set_direction( display_config->pinCS, GPIO_MODE_OUTPUT );
         gpio_set_level( display_config->pinCS, 0 );
     }
 
-    ESP_LOGI(TAG, "GPIO_DC=%d", display_config->pinDC);
-    gpio_reset_pin( display_config->pinDC );
+    gpio_reset_pin(display_config->pinDC);
     gpio_set_direction( display_config->pinDC, GPIO_MODE_OUTPUT );
-    gpio_set_level( display_config->pinDC, 0 );
+    gpio_set_level(display_config->pinDC, 0);
 
-    ESP_LOGI(TAG, "GPIO_RESET=%d", display_config->pinRESET);
-    if ( display_config->pinRESET >= 0 ) {
+    if (display_config->pinRESET >= 0) {
         gpio_reset_pin( display_config->pinRESET );
         gpio_set_direction( display_config->pinRESET, GPIO_MODE_OUTPUT );
         gpio_set_level( display_config->pinRESET, 1 );
@@ -59,15 +54,12 @@ void spi_master_init(TFT_t *dev, display_config_t *display_config)
         delayMS(50);
     }
 
-    ESP_LOGI(TAG, "GPIO_BL=%d", display_config->pinBL);
-    if ( display_config->pinBL >= 0 ) {
+    if (display_config->pinBL >= 0) {
         gpio_reset_pin(display_config->pinBL);
         gpio_set_direction(display_config->pinBL, GPIO_MODE_OUTPUT);
         gpio_set_level(display_config->pinBL, 0);
     }
 
-    ESP_LOGI(TAG, "GPIO_MOSI=%d", display_config->pinMOSI);
-    ESP_LOGI(TAG, "GPIO_SCLK=%d", display_config->pinSCLK);
     spi_bus_config_t buscfg = {
         .mosi_io_num = display_config->pinMOSI,
         .miso_io_num = -1,
@@ -78,27 +70,12 @@ void spi_master_init(TFT_t *dev, display_config_t *display_config)
         .flags = 0
     };
 
-    ret = spi_bus_initialize( display_config->spiHost, &buscfg, SPI_DMA_CH_AUTO );
+    esp_err_t ret = spi_bus_initialize( display_config->spiHost, &buscfg, SPI_DMA_CH_AUTO );
     ESP_LOGD(TAG, "spi_bus_initialize=%d",ret);
     assert(ret==ESP_OK);
 
-    spi_device_interface_config_t devcfg;
-    memset(&devcfg, 0, sizeof(devcfg));
-    devcfg.clock_speed_hz = display_config->spiFrequency;
-    devcfg.queue_size = 10;
-    devcfg.mode = 3; // SPI Mode forcorrect reading possibility (found from tests on a bare-metal)
-    //devcfg.input_delay_ns = 0;
-    devcfg.flags = SPI_DEVICE_3WIRE;       // No MISO wire, write and read on a same line
-    devcfg.flags |= SPI_DEVICE_HALFDUPLEX; // Correct read oon the same line
-
-    if ( display_config->pinCS >= 0 ) {
-        devcfg.spics_io_num = display_config->pinCS;
-    } else {
-        devcfg.spics_io_num = -1;
-    }
-
     spi_device_handle_t handle;
-    ret = spi_bus_add_device( display_config->spiHost, &devcfg, &handle);
+    ret = spi_bus_add_device(display_config->spiHost, spiInterfaceConfig, &handle);
     ESP_LOGD(TAG, "spi_bus_add_device=%d",ret);
     assert(ret==ESP_OK);
 
@@ -274,7 +251,7 @@ uint16_t spi_master_write_colors(TFT_t * dev, uint16_t *colors, uint16_t size)
  * @param dev
  * @param display_config
  */
-void lcdInit(TFT_t *dev, display_config_t *display_config)
+void lcdInit(TFT_t *dev, display_config_t *display_config, spi_device_interface_config_t *spiInterfaceConfig)
 {
     dev->_width = display_config->width;
     dev->_height = display_config->height;
@@ -287,7 +264,7 @@ void lcdInit(TFT_t *dev, display_config_t *display_config)
     dev->_font_underline = false;
     dev->diplayBufferLen = WRITE_BUFF_LEN;
 
-    spi_master_init(dev, display_config);
+    spi_master_init(dev, display_config, spiInterfaceConfig);
 
     spi_master_write_command(dev, LCD_CMD_SWRESET);	//Software Reset
     delayMS(150);
@@ -994,7 +971,7 @@ uint8_t lcdDrawChar(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t 
  * @param bgColor 
  * @return uint8_t 
  */
-uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t charCode, uint16_t color, uint16_t bgColor)
+uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t charCode, uint16_t color)
 {
     uint8_t pw, ph;
 
@@ -1007,15 +984,14 @@ uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t
         return 0;
     }
 
-    uint16_t glyphIndex = 0;
+    uint16_t dotX = x;
+    uint16_t dotY = y;
     uint16_t glyphBytes = ceil(pw / 8.0);
     uint8_t lastBitsCount = pw % 8;
     uint8_t lastBitNumber = lastBitsCount == 0 ? 0 : 8 - lastBitsCount;
     uint8_t lastBitIndex = 0;
     uint8_t bytesCounter = 0;
     //ESP_LOGD("GetFontx", "rc=%d pw=%d ph=%d glyphBytes=%d lastBits=%d", rc, pw, ph, glyphBytes, lastBitsCount);
-
-    // Fill glyph buffer with colors from display memory
 
     for (uint16_t i = 0; i < ph * glyphBytes; i++) {
         // Find partial filled byte
@@ -1029,14 +1005,11 @@ uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t
 
         // Convert positive glyph bits to bytes and negative bits to background color
         for (int8_t bitIndex = 7; bitIndex >= lastBitIndex; bitIndex--) {
-            glyph[glyphIndex] = ((dots[i] >> bitIndex) & 0x01) ? color : bgColor;
-            // TODO buffer overflow control
-            glyphIndex++;
+            if ((dots[i] >> bitIndex) & 0x01) {
+                lcdDrawPixel(dev, dotX, dotY, color);
+            }
         }
     }
-
-    // Send to display memory
-    lcdDrawPixels(dev, x, y, pw, ph, &glyph, glyphIndex);
 
     return pw;
 }
@@ -1090,7 +1063,7 @@ uint16_t lcdDrawStringS(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char
     uint16_t charWidth = 0;
 
     for(size_t i = 0; i < length; i++) {
-        charWidth = lcdDrawCharS(dev, fx, strX + strWidth, y, str[i], color, color);
+        charWidth = lcdDrawCharS(dev, fx, strX + strWidth, y, str[i], color);
         if (charWidth == 0) {
             break;
         }
@@ -1187,8 +1160,6 @@ esp_err_t lcdReadMemoryDataAccessControl(TFT_t *dev, mad_ctl_t *madCtl)
 	madCtl->MV  = madByte >> 5 & 0x01;
 	madCtl->MX  = madByte >> 6 & 0x01;
 	madCtl->MY  = madByte >> 7 & 0x01;
-
-    ESP_LOG_BUFFER_HEX("rx_data", SPITransaction.rx_data, 4);
 
     return ret;
 }
