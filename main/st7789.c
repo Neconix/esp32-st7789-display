@@ -7,6 +7,7 @@
 #include <driver/spi_master.h>
 #include <hal/spi_types.h>
 #include <driver/gpio.h>
+#include <esp_heap_caps.h>
 #include "esp_log.h"
 
 #include "st7789.h"
@@ -17,11 +18,11 @@
 #define SPI_CMD_MODE  0x00
 #define SPI_DATA_MODE 0x01
 
-#define WRITE_BUFF_LEN 1024
+#define WRITE_BUFF_LEN 128
 #define FONT_GLYPH_BUFF_LEN 256
 #define DISPLAY_GLYPH_BUFF_LEN 512
 
-static uint16_t packet[WRITE_BUFF_LEN];	       // Write colors buffer
+static uint16_t *packet;	                   // Write colors buffer
 static uint8_t  dots[FONT_GLYPH_BUFF_LEN];	   // Font file glyph buffet
 static uint16_t glyph[DISPLAY_GLYPH_BUFF_LEN]; // Glyph buffer for display write
 
@@ -85,20 +86,16 @@ void spi_master_init(TFT_t *dev, display_config_t *display_config, spi_device_in
 }
 
 
-bool spi_master_write_byte(spi_device_handle_t SPIHandle, const uint8_t* Data, size_t DataLength)
+bool spi_master_write_byte(spi_device_handle_t SPIHandle, const uint8_t* data, size_t length)
 {
     spi_transaction_t SPITransaction;
     esp_err_t ret;
 
-    if ( DataLength > 0 ) {
+    if ( length > 0 ) {
         memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
-        SPITransaction.length = DataLength * 8;
-        SPITransaction.tx_buffer = Data;
-#if 1
+        SPITransaction.length = length * 8;
+        SPITransaction.tx_buffer = data;
         ret = spi_device_transmit( SPIHandle, &SPITransaction );
-#else
-        ret = spi_device_polling_transmit( SPIHandle, &SPITransaction );
-#endif
         assert(ret==ESP_OK);
     }
 
@@ -117,16 +114,6 @@ bool spi_master_write_data_byte(TFT_t * dev, uint8_t data)
     return spi_master_write_byte(dev->_SPIHandle, &data, 1);
 }
 
-
-bool spi_master_write_data_word(TFT_t * dev, uint16_t data)
-{
-    static uint8_t Byte[2];
-    Byte[0] = (data >> 8) & 0xFF;
-    Byte[1] = data & 0xFF;
-    gpio_set_level( dev->_dc, SPI_DATA_MODE );
-    return spi_master_write_byte( dev->_SPIHandle, Byte, 2);
-}
-
 bool spi_master_write_addr(TFT_t * dev, uint16_t addr1, uint16_t addr2)
 {
     static uint8_t Byte[4];
@@ -136,18 +123,6 @@ bool spi_master_write_addr(TFT_t * dev, uint16_t addr1, uint16_t addr2)
     Byte[3] = addr2 & 0xFF;
     gpio_set_level( dev->_dc, SPI_DATA_MODE );
     return spi_master_write_byte( dev->_SPIHandle, Byte, 4);
-}
-
-bool spi_master_write_color(TFT_t * dev, uint16_t color, uint16_t size)
-{
-    static uint8_t Byte[1024];
-    int index = 0;
-    for(int i=0;i<size;i++) {
-        Byte[index++] = (color >> 8) & 0xFF;
-        Byte[index++] = color & 0xFF;
-    }
-    gpio_set_level( dev->_dc, SPI_DATA_MODE );
-    return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
 }
 
 uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
@@ -181,7 +156,7 @@ uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 }
 
 /**
- * @brief Under development
+ * @brief Not implemented
  * 
  * @param dev 
  * @param colors 
@@ -304,31 +279,50 @@ void lcdInit(TFT_t *dev, display_config_t *display_config, spi_device_interface_
     if(dev->_bl >= 0) {
         gpio_set_level( dev->_bl, 1 );
     }
-}
 
-
-// Draw pixel
-// x:X coordinate
-// y:Y coordinate
-// color:color
-void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color){
-    if (x >= dev->_width) return;
-    if (y >= dev->_height) return;
-
-    uint16_t _x = x + dev->_offsetx;
-    uint16_t _y = y + dev->_offsety;
-
-    spi_master_write_command(dev, 0x2A);	// set column(x) address
-    spi_master_write_addr(dev, _x, _x);
-    spi_master_write_command(dev, 0x2B);	// set Page(y) address
-    spi_master_write_addr(dev, _y, _y);
-    spi_master_write_command(dev, 0x2C);	//	Memory Write
-    spi_master_write_data_word(dev, color);
+    // Allocating DMA buffer
+    packet = heap_caps_malloc(WRITE_BUFF_LEN, MALLOC_CAP_DMA);
 }
 
 
 /**
- * @brief Draw multiple pixels to a region
+ * @brief Puts a pixel to lcd display
+ * 
+ * @param dev 
+ * @param x 
+ * @param y 
+ * @param color 
+ */
+void lcdDrawPixel(TFT_t * dev, uint16_t x, uint16_t y, uint16_t color)
+{
+    if (x >= dev->_width) return;
+    if (y >= dev->_height) return;
+
+    spi_master_write_command(dev, LCD_CMD_CASET);	// set column(x) address
+    spi_master_write_addr(dev, x, x);
+    spi_master_write_command(dev, LCD_CMD_RASET);	// set Page(y) address
+    spi_master_write_addr(dev, y, y);
+    spi_master_write_command(dev, LCD_CMD_RAMWR);	//	Memory Write
+    
+    packet[0] = (color >> 8) & 0xFF;
+    packet[1] = color & 0xFF;
+
+    gpio_set_level(dev->_dc, SPI_DATA_MODE);
+
+    spi_transaction_t transaction;
+    memset(&transaction, 0, sizeof(spi_transaction_t));
+    transaction.tx_buffer = packet;
+
+    transaction.length = 8 * 2; // bits;
+
+    esp_err_t ret = spi_device_transmit(dev->_SPIHandle, &transaction);
+    
+    assert(ret==ESP_OK);
+}
+
+
+/**
+ * @brief Draws multiple pixels to a region
  *
  * @param dev
  * @param x

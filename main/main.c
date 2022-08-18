@@ -102,7 +102,7 @@ void TextComplexBackgroundTest(TFT_t *dev)
     char *str1 = "Once upon a time...";
     char *str2 = "Once upon a time...";
 
-    lcdDrawString(dev, fx24G, 0, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
+    // lcdDrawString(dev, fx24G, 0, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
     double endTime = getTimeSec() - startTime;
     ESP_LOGI(__FUNCTION__, "lcdDrawString time: %f s", endTime);
 
@@ -306,23 +306,24 @@ void ST7789_Tests(void *pvParameters)
 
     for (;;)
     {
-        TimerTextTest(pDisplay);
-        MenuTest(pDisplay);
-        WAIT;
+        // TimerTextTest(pDisplay);
+        // MenuTest(pDisplay);
+        // WAIT;
         TextComplexBackgroundTest(pDisplay);
         WAIT;
-        Lines(pDisplay);
-        WAIT;
-        SaturationBlue(pDisplay);
-        WAIT;
-        SaturationRed(pDisplay);
-        WAIT;
-        SaturationGreen(pDisplay);
-        WAIT;
-        Squares(pDisplay);
-        WAIT;
-        RandomRects(pDisplay);
-        WAIT;
+        // Lines(pDisplay);
+        // WAIT;
+        // SaturationBlue(pDisplay);
+        // WAIT;
+        // SaturationRed(pDisplay);
+        // WAIT;
+        // SaturationGreen(pDisplay);
+        // WAIT;
+        // Squares(pDisplay);
+        // WAIT;
+        // RandomRects(pDisplay);
+        // WAIT;
+
         // Need a slower interface for correct working, see InitDisplay()
         // ReadMadCtlTest(pDisplay);
         // WAIT;
