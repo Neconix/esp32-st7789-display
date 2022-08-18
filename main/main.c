@@ -99,17 +99,20 @@ void TextComplexBackgroundTest(TFT_t *dev)
     }
 
     // Drawing strings
-    char *str1 = "With background";
-    char *str2 = "Without background";
+    char *str1 = "Once upon a time...";
+    char *str2 = "Once upon a time...";
 
-    lcdDrawString(dev, fx24G, 10, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
-    // lcdDrawStringS(dev, fx24G, 10, 100, str2, rgb24to16(WEB_GOLDENROD));
-
-    uint16_t colors[1024] = { 0xD, 0xE, 0xF };
-    // uint16_t colors_size = lcdReadRegion(dev, 50, 50, 100, 2, &colors);
-
+    lcdDrawString(dev, fx24G, 0, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
     double endTime = getTimeSec() - startTime;
-    ESP_LOGI(__FUNCTION__, "Drawing time: %f s", endTime);
+    ESP_LOGI(__FUNCTION__, "lcdDrawString time: %f s", endTime);
+
+    startTime = getTimeSec();
+    lcdDrawStringS(dev, fx24G, 0, 100, str2, rgb24to16(WEB_GOLDENROD));
+
+    endTime = getTimeSec() - startTime;
+    ESP_LOGI(__FUNCTION__, "lcdDrawStringS time: %f s", endTime);
+
+    
 }
 
 void ReadMadCtlTest(TFT_t *dev)
@@ -197,7 +200,7 @@ void SaturationGreen(TFT_t *dev)
 {
     double startTick, diffTick;
     startTick = getTimeSec();
-static TFT_t display;
+
     uint16_t color;
     // Green color have one more bit wide
     for (uint16_t i = 0; i < 0x3F; i++)

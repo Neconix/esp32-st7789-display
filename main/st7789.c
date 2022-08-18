@@ -960,7 +960,7 @@ uint8_t lcdDrawChar(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t 
 }
 
 /**
- * @brief Not implemented
+ * @brief Slow draw char by code with a color. Returns a char width in pixels.
  * 
  * @param dev 
  * @param fxs 
@@ -989,25 +989,30 @@ uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t
     uint16_t glyphBytes = ceil(pw / 8.0);
     uint8_t lastBitsCount = pw % 8;
     uint8_t lastBitNumber = lastBitsCount == 0 ? 0 : 8 - lastBitsCount;
-    uint8_t lastBitIndex = 0;
-    uint8_t bytesCounter = 0;
-    //ESP_LOGD("GetFontx", "rc=%d pw=%d ph=%d glyphBytes=%d lastBits=%d", rc, pw, ph, glyphBytes, lastBitsCount);
+    uint8_t lastBitIndex;
+	uint8_t bitsCounter = 0;
 
-    for (uint16_t i = 0; i < ph * glyphBytes; i++) {
+    for (uint16_t line = 0; line < ph * glyphBytes; line++) {
         // Find partial filled byte
-        bytesCounter++;
-        if (bytesCounter == glyphBytes) {
-            lastBitIndex = lastBitNumber;
-            bytesCounter = 0;
-        } else {
+        if (bitsCounter < (pw - lastBitsCount)) {
             lastBitIndex = 0;
+        } else {
+            lastBitIndex = lastBitNumber;
         }
 
-        // Convert positive glyph bits to bytes and negative bits to background color
+        // Drawing positive bits with pixels
         for (int8_t bitIndex = 7; bitIndex >= lastBitIndex; bitIndex--) {
-            if ((dots[i] >> bitIndex) & 0x01) {
+            if ((dots[line] >> bitIndex) & 0x01) {
+				dotX = x + bitsCounter;
                 lcdDrawPixel(dev, dotX, dotY, color);
             }
+            bitsCounter++;
+        }
+
+        // Very last bit in glyph width
+        if (lastBitIndex == lastBitNumber) {
+            bitsCounter = 0;
+            dotY++;
         }
     }
 
@@ -1045,7 +1050,7 @@ uint16_t lcdDrawString(TFT_t * dev, FontxFile *fx, uint16_t x, uint16_t y, char 
 }
 
 /**
- * @brief Not implemented
+ * @brief Slow draw a string with a color without. Returns a string length in pixels.
  * 
  * @param dev 
  * @param fx 
@@ -1154,12 +1159,12 @@ esp_err_t lcdReadMemoryDataAccessControl(TFT_t *dev, mad_ctl_t *madCtl)
 
     uint8_t madByte = SPITransaction.rx_data[0];
 
-    madCtl->MH  = madByte >> 2 & 0x01;
-    madCtl->RGB = madByte >> 3 & 0x01;
-    madCtl->ML  = madByte >> 4 & 0x01;
-	madCtl->MV  = madByte >> 5 & 0x01;
-	madCtl->MX  = madByte >> 6 & 0x01;
-	madCtl->MY  = madByte >> 7 & 0x01;
+    madCtl->MH  = madByte & 0x04;
+    madCtl->RGB = madByte & 0x08;
+    madCtl->ML  = madByte & 0x10;
+	madCtl->MV  = madByte & 0x20;
+	madCtl->MX  = madByte & 0x40;
+	madCtl->MY  = madByte & 0x80;
 
     return ret;
 }
