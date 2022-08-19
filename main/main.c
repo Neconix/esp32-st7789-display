@@ -31,13 +31,7 @@
 
 static const char *TAG = "ST7789";
 
-static FontxFile fx16G[2];
-static FontxFile fx24G[2];
-static FontxFile fx32G[2];
-static FontxFile fx32L[2];
-static FontxFile fx16M[2];
-static FontxFile fx24M[2];
-static FontxFile fx32M[2];
+static FontxFile fontFile[2];
 
 static void SPIFFS_Directory(char * path)
 {
@@ -74,7 +68,7 @@ void TimerTextTest(TFT_t *dev)
     while (getTimeSec() - startTime <= displayPeriod) {
         sprintf(str, "Elapsed %.2fs", getTimeSec());
 
-        uint16_t strWidth = lcdDrawString(dev, fx24G, xpos, ypos, str, textColor, bgColor);
+        uint16_t strWidth = lcdDrawString(dev, fontFile, xpos, ypos, str, textColor, bgColor);
         uint16_t strEnd = xpos + strWidth;
         // Filling a background after the string to the display edge
         lcdDrawFillRect(dev, strEnd, ypos, dev->_width - strEnd, ypos + 24, bgColor);
@@ -102,12 +96,12 @@ void TextComplexBackgroundTest(TFT_t *dev)
     char *str1 = "Once upon a time...";
     char *str2 = "Once upon a time...";
 
-    lcdDrawString(dev, fx24G, 0, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
+    lcdDrawString(dev, fontFile, 0, 50, str1, rgb24to16(WEB_GOLDENROD), BLUE);
     double endTime = getTimeSec() - startTime;
     ESP_LOGI(__FUNCTION__, "lcdDrawString time: %f s", endTime);
 
     startTime = getTimeSec();
-    lcdDrawStringS(dev, fx24G, 0, 100, str2, rgb24to16(WEB_GOLDENROD));
+    lcdDrawStringS(dev, fontFile, 0, 100, str2, rgb24to16(WEB_GOLDENROD));
 
     endTime = getTimeSec() - startTime;
     ESP_LOGI(__FUNCTION__, "lcdDrawStringS time: %f s", endTime);
@@ -143,7 +137,7 @@ void MenuTest(TFT_t *dev)
     for (int i = 0; i < items; i++)
     {
         sprintf(s, "Menu item %d", i+1);
-        lcdDrawString(dev, fx24G, xpos, ypos, s, GREEN, BLACK);
+        lcdDrawString(dev, fontFile, xpos, ypos, s, GREEN, BLACK);
         ypos += step;
     }
 
@@ -405,13 +399,7 @@ void app_main(void)
     InitSpiffs();
     InitDisplay(&display);
 
-    //InitFontx(fx16G,"/spiffs/ILGH16XB.FNT",""); // 8x16Dot Gothic
-    InitFontx(fx24G,"/spiffs/ILGH24XB.FNT",""); // 12x24Dot Gothic
-    // InitFontx(fx32G,"/spiffs/ILGH32XB.FNT",""); // 16x32Dot Gothic
-    // InitFontx(fx32L,"/spiffs/LATIN32B.FNT",""); // 16x32Dot Latin
-    // InitFontx(fx16M,"/spiffs/ILMH16XB.FNT",""); // 8x16Dot Mincyo
-    // InitFontx(fx24M,"/spiffs/ILMH24XB.FNT",""); // 12x24Dot Mincyo
-    // InitFontx(fx32M,"/spiffs/ILMH32XB.FNT",""); // 16x32Dot Mincyo
+    InitFontx(fontFile,"/spiffs/font10x20-KOI8-R.fnt","");
 
     ESP_LOGI(TAG, "Init complete");
 
