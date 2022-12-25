@@ -918,7 +918,7 @@ uint8_t lcdDrawChar(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t 
 {
     uint8_t pw, ph;
 
-    GetFontx(fxs, charCode, &dots, &pw, &ph);
+    GetFontx(fxs, charCode, (uint8_t*) &dots, &pw, &ph);
 
     if (x + pw > dev->_width - 1) {
         return 0;
@@ -954,7 +954,7 @@ uint8_t lcdDrawChar(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t 
     }
 
     // Send to display memory
-    lcdDrawPixels(dev, x, y, pw, ph, &glyph, glyphIndex);
+    lcdDrawPixels(dev, x, y, pw, ph, (uint16_t*) &glyph, glyphIndex);
 
     return pw;
 }
@@ -975,7 +975,7 @@ uint8_t lcdDrawCharS(TFT_t *dev, FontxFile *fxs, uint16_t x, uint16_t y, uint8_t
 {
     uint8_t pw, ph;
 
-    GetFontx(fxs, charCode, &dots, &pw, &ph);
+    GetFontx(fxs, charCode, (uint8_t*) &dots, &pw, &ph);
 
     if (x + pw > dev->_width - 1) {
         return 0;
