@@ -9,6 +9,7 @@
 #include "fontx.h"
 
 #define FontxDebug 0 // for Debug
+#define TAG "FONTX"
 
 // フォントファイルパスを構造体に保存
 void AddFontx(FontxFile *fx, const char *path)
@@ -201,9 +202,9 @@ bool GetFontx(FontxFile *fxs, uint8_t ascii , uint8_t *pGlyph, uint8_t *pw, uint
 {
   
 	int i;
-	uint32_t offset;
+	uint16_t offset;
 
-	if(FontxDebug)printf("[GetFontx]ascii=0x%x\n",ascii);
+	if(FontxDebug) printf("[GetFontx]ascii=0x%x\n",ascii);
 	for(i=0; i<2; i++){
 	//for(i=0; i<1; i++){
 		if(!OpenFontx(&fxs[i])) continue;
@@ -213,9 +214,9 @@ bool GetFontx(FontxFile *fxs, uint8_t ascii , uint8_t *pGlyph, uint8_t *pw, uint
 			if(fxs[i].is_ank){
 				if(FontxDebug)printf("[GetFontx]fxs.is_ank fxs.fsz=%d\n",fxs[i].fsz);
 				offset = 17 + ascii * fxs[i].fsz;
-				if(FontxDebug)printf("[GetFontx]offset=%ld\n",offset);
+				if(FontxDebug)printf("[GetFontx]offset=%u\n",offset);
 				if(fseek(fxs[i].file, offset, SEEK_SET)) {
-					printf("Fontx:seek(%lu) failed.\n",offset);
+					ESP_LOGE(TAG, "Fontx:seek(%u) failed.", offset);
 					return false;
 				}
 				if(fread(pGlyph, 1, fxs[i].fsz, fxs[i].file) != fxs[i].fsz) {
