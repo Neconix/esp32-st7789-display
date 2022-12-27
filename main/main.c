@@ -317,6 +317,7 @@ void ST7789_Tests(void *pvParameters)
         WAIT;
         RandomRects(pDisplay);
         WAIT;
+
         // Need a slower interface for correct working, see InitDisplay()
         // ReadMadCtlTest(pDisplay);
         // WAIT;

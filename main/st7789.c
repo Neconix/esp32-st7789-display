@@ -17,15 +17,17 @@
 #define SPI_CMD_MODE  0x00
 #define SPI_DATA_MODE 0x01
 
-#define WRITE_BUFF_LEN 1024
+#define MAX_WRITE_BUFF_COLORS 512
+#define WRITE_BUFF_LEN MAX_WRITE_BUFF_COLORS*2
 #define FONT_GLYPH_BUFF_LEN 256
 #define DISPLAY_GLYPH_BUFF_LEN 512
 
-static uint16_t packet[WRITE_BUFF_LEN];	       // Write colors buffer
+static uint8_t* write_buff;                    // Write colors buffer
 static uint8_t  dots[FONT_GLYPH_BUFF_LEN];	   // Font file glyph buffet
 static uint16_t glyph[DISPLAY_GLYPH_BUFF_LEN]; // Glyph buffer for display write
 
-void delayMS(int ms) {
+void delayMS(int ms) 
+{
     int _ms = ms + (portTICK_PERIOD_MS - 1);
     TickType_t xTicksToDelay = _ms / portTICK_PERIOD_MS;
     vTaskDelay(xTicksToDelay);
@@ -70,7 +72,7 @@ void spi_master_init(TFT_t *dev, display_config_t *display_config, spi_device_in
         .flags = 0
     };
 
-    esp_err_t ret = spi_bus_initialize( display_config->spiHost, &buscfg, SPI_DMA_CH_AUTO );
+    esp_err_t ret = spi_bus_initialize(display_config->spiHost, &buscfg, SPI_DMA_CH_AUTO);
     ESP_LOGD(TAG, "spi_bus_initialize=%d",ret);
     assert(ret==ESP_OK);
 
@@ -82,97 +84,83 @@ void spi_master_init(TFT_t *dev, display_config_t *display_config, spi_device_in
     dev->_dc = display_config->pinDC;
     dev->_bl = display_config->pinBL;
     dev->_SPIHandle = handle;
+
+    // DMA buffer allocation
+    write_buff = heap_caps_malloc(WRITE_BUFF_LEN, MALLOC_CAP_DMA);
 }
 
-
-bool spi_master_write_byte(spi_device_handle_t SPIHandle, const uint8_t* Data, size_t DataLength)
+bool spi_master_write_bytes(spi_device_handle_t SPIHandle, uint8_t *bytes, size_t len)
 {
     spi_transaction_t SPITransaction;
     esp_err_t ret;
 
-    if ( DataLength > 0 ) {
-        memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
-        SPITransaction.length = DataLength * 8;
-        SPITransaction.tx_buffer = Data;
-#if 1
-        ret = spi_device_transmit( SPIHandle, &SPITransaction );
-#else
-        ret = spi_device_polling_transmit( SPIHandle, &SPITransaction );
-#endif
-        assert(ret==ESP_OK);
-    }
+    memcpy(write_buff, bytes, len);
+    memset(&SPITransaction, 0, sizeof(spi_transaction_t));
 
+    SPITransaction.length = len * 8;
+    SPITransaction.tx_buffer = write_buff;
+    ret = spi_device_transmit(SPIHandle, &SPITransaction);
+    
+    assert(ret==ESP_OK);
     return true;
 }
 
 bool spi_master_write_command(TFT_t * dev, uint8_t cmd)
 {
     gpio_set_level(dev->_dc, SPI_CMD_MODE);
-    return spi_master_write_byte(dev->_SPIHandle, &cmd, 1);
+    return spi_master_write_bytes(dev->_SPIHandle, &cmd, 1);
 }
 
 bool spi_master_write_data_byte(TFT_t * dev, uint8_t data)
 {
     gpio_set_level(dev->_dc, SPI_DATA_MODE);
-    return spi_master_write_byte(dev->_SPIHandle, &data, 1);
+    return spi_master_write_bytes(dev->_SPIHandle, &data, 1);
 }
-
 
 bool spi_master_write_data_word(TFT_t * dev, uint16_t data)
 {
-    static uint8_t Byte[2];
-    Byte[0] = (data >> 8) & 0xFF;
-    Byte[1] = data & 0xFF;
+    static uint8_t bytes[2];
+    bytes[0] = (data >> 8) & 0xFF;
+    bytes[1] = data & 0xFF;
     gpio_set_level( dev->_dc, SPI_DATA_MODE );
-    return spi_master_write_byte( dev->_SPIHandle, Byte, 2);
+    return spi_master_write_bytes(dev->_SPIHandle, bytes, 2);
 }
 
 bool spi_master_write_addr(TFT_t * dev, uint16_t addr1, uint16_t addr2)
 {
-    static uint8_t Byte[4];
-    Byte[0] = (addr1 >> 8) & 0xFF;
-    Byte[1] = addr1 & 0xFF;
-    Byte[2] = (addr2 >> 8) & 0xFF;
-    Byte[3] = addr2 & 0xFF;
-    gpio_set_level( dev->_dc, SPI_DATA_MODE );
-    return spi_master_write_byte( dev->_SPIHandle, Byte, 4);
-}
-
-bool spi_master_write_color(TFT_t * dev, uint16_t color, uint16_t size)
-{
-    static uint8_t Byte[1024];
-    int index = 0;
-    for(int i=0;i<size;i++) {
-        Byte[index++] = (color >> 8) & 0xFF;
-        Byte[index++] = color & 0xFF;
-    }
-    gpio_set_level( dev->_dc, SPI_DATA_MODE );
-    return spi_master_write_byte( dev->_SPIHandle, Byte, size*2);
+    static uint8_t bytes[4];
+    bytes[0] = (addr1 >> 8) & 0xFF;
+    bytes[1] = addr1 & 0xFF;
+    bytes[2] = (addr2 >> 8) & 0xFF;
+    bytes[3] = addr2 & 0xFF;
+    gpio_set_level(dev->_dc, SPI_DATA_MODE);
+    return spi_master_write_bytes( dev->_SPIHandle, bytes, 4);
 }
 
 uint16_t spi_master_write_packet(TFT_t * dev, uint16_t color, uint16_t size)
 {
-    gpio_set_level(dev->_dc, SPI_DATA_MODE);
+    spi_transaction_t SPITransaction;
 
+    gpio_set_level(dev->_dc, SPI_DATA_MODE);
     // Swapping bytes in a word
-    uint16_t color_word = color >> 8 | (color & 0xFF) << 8;
+    uint8_t color_lb = color;
+    uint8_t color_hb = color >> 8;
 
     uint16_t len;
     uint16_t total = 0;
-    for (uint16_t p = 0; p <= size; p += WRITE_BUFF_LEN) {
-        len = (size - p) > WRITE_BUFF_LEN ? WRITE_BUFF_LEN : (size - p);
+    for (uint16_t p = 0; p < size; p += MAX_WRITE_BUFF_COLORS) {
+        len = (size - p) > MAX_WRITE_BUFF_COLORS ? MAX_WRITE_BUFF_COLORS : (size - p);
 
-        for(int i = 0; i < len; i++) {
-            packet[i] = color_word;
+        for(int i = 0; i < len * 2; i += 2) {
+            write_buff[i]   = color_hb;
+            write_buff[i+1] = color_lb;
         }
-
-        spi_transaction_t SPITransaction;
-
-        memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
+        
+        memset(&SPITransaction, 0, sizeof(spi_transaction_t));
         SPITransaction.length = len * 16; // bits in a packet
-        SPITransaction.tx_buffer = packet;
+        SPITransaction.tx_buffer = write_buff;
 
-        esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
+        esp_err_t ret = spi_device_transmit(dev->_SPIHandle, &SPITransaction);
         assert(ret==ESP_OK);
         total += len;
     }
@@ -217,27 +205,28 @@ uint16_t spi_master_read_packet(TFT_t *dev, uint16_t *colors, uint16_t size)
 
 uint16_t spi_master_write_colors(TFT_t * dev, uint16_t *colors, uint16_t size)
 {
+    spi_transaction_t SPITransaction;
+
     gpio_set_level(dev->_dc, SPI_DATA_MODE);
 
     uint16_t len;
     uint16_t total = 0;
     uint16_t colorIndex = 0;
-    for (uint16_t p = 0; p <= size; p += WRITE_BUFF_LEN) {
-        len = (size - p) > WRITE_BUFF_LEN ? WRITE_BUFF_LEN : (size - p);
+    for (uint16_t p = 0; p < size; p += MAX_WRITE_BUFF_COLORS) {
+        len = (size - p) > MAX_WRITE_BUFF_COLORS ? MAX_WRITE_BUFF_COLORS : (size - p);
 
-        for(int i = 0; i < len; i++) {
+        for(int i = 0; i < len * 2; i += 2) {
             // Swapping bytes in a word
-            packet[i] = colors[colorIndex] >> 8 | (colors[colorIndex] & 0xFF) << 8;
+            write_buff[i]   = colors[colorIndex] >> 8;
+            write_buff[i+1] = colors[colorIndex] & 0xFF;
             colorIndex++;
         }
 
-        spi_transaction_t SPITransaction;
-
         memset( &SPITransaction, 0, sizeof( spi_transaction_t ) );
         SPITransaction.length = len * 16; // bits in a packet
-        SPITransaction.tx_buffer = packet;
+        SPITransaction.tx_buffer = write_buff;
 
-        esp_err_t ret = spi_device_transmit( dev->_SPIHandle, &SPITransaction );
+        esp_err_t ret = spi_device_transmit(dev->_SPIHandle, &SPITransaction);
         assert(ret==ESP_OK);
         total += len;
     }
